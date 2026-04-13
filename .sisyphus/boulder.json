@@ -1,0 +1,12 @@
+{
+  "active_plan": "/home/ye/my-code/planb/.sisyphus/plans/tdd-ai-client-init-task.md",
+  "started_at": "2026-04-13T07:39:42.435Z",
+  "session_ids": [
+    "ses_27a37d029ffekJJLzza7eN5J7l"
+  ],
+  "session_origins": {
+    "ses_27a37d029ffekJJLzza7eN5J7l": "direct"
+  },
+  "plan_name": "tdd-ai-client-init-task",
+  "agent": "atlas"
+}

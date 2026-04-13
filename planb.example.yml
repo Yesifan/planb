@@ -1,0 +1,12 @@
+primaryModel: "myprovider:my-model-name"
+secondaryModel: "myprovider:my-model-name"
+provider:
+  myprovider:
+    npm: "@ai-sdk/openai-compatible"
+    name: My AI ProviderDisplay Name
+    options:
+      apiKey: xxxxxx
+      baseURL: https://api.myprovider.com/v1
+    models:
+      my-model-name:
+        name: My Model Display Name
