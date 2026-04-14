@@ -1,10 +1,11 @@
 import path from "node:path";
 import { readFileSync } from "fs";
 import { load } from "js-yaml";
-import { generateText, LanguageModel } from "ai";
+import { generateText, LanguageModel, NoSuchModelError, InvalidArgumentError } from "ai";
 
 import { AIProvider, Provider, LLMConfigSchema, LLMConfig } from "./type";
 import { createAIProvider } from "./provider";
+import { ConfigValidationError } from "./errors";
 
 const homeDir = process.env.HOME || process.env.USERPROFILE || "/tmp";
 const configDir = `${homeDir}/.config/planb`;
@@ -26,13 +27,12 @@ export function loadConfig(configPath: string = DEFAULT_CONFIG_PATH) {
   const result = LLMConfigSchema.safeParse(parsed);
 
   if (!result.success) {
-    throw new Error(`
-      ${configPath} format error.
-      OriginContent:
-      ${yamlContent}
-      Error: 
-      ${result.error}
-    `);
+    throw new ConfigValidationError({
+      configPath,
+      originalContent: yamlContent,
+      message: result.error.message,
+      cause: result.error,
+    });
   }
 
   return result.data;
@@ -73,14 +73,18 @@ export class AIClient {
         } else if (model) {
           return provider(model.name);
         } else {
-          throw new Error(
-            `Model "${modelName}" not found in provider "${providerName}"`,
-          );
+          throw new NoSuchModelError({
+            modelId: modelName,
+            modelType: 'languageModel',
+            message: `Model "${modelName}" not found in provider "${providerName}"`,
+          });
         }
       } else {
-        throw new Error(
-          `Provider "${providerName}" not found or not configured`,
-        );
+        throw new InvalidArgumentError({
+          parameter: 'model',
+          value: modelArg,
+          message: `Provider "${providerName}" not found or not configured`,
+        });
       }
     }
 
