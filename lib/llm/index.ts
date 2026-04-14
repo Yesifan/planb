@@ -1,9 +1,9 @@
 import path from "node:path";
 import { readFileSync } from "fs";
 import { load } from "js-yaml";
-import { generateText } from "ai";
+import { generateText, LanguageModel } from "ai";
 
-import { AIProvider, Provider, LLMConfigSchema } from "./type";
+import { AIProvider, Provider, LLMConfigSchema, LLMConfig } from "./type";
 import { createAIProvider } from "./provider";
 
 const homeDir = process.env.HOME || process.env.USERPROFILE || "/tmp";
@@ -19,18 +19,26 @@ const DEFAULT_CONFIG_PATH = IS_PRODUCTION
   : path.join(path.dirname(path.dirname(__dirname)), "planb.yml");
 
 // sync read config
-function loadConfig(configPath: string = DEFAULT_CONFIG_PATH) {
+export function loadConfig(configPath: string = DEFAULT_CONFIG_PATH) {
   const yamlContent = readFileSync(configPath, "utf-8");
   const parsed = load(yamlContent);
 
   const result = LLMConfigSchema.safeParse(parsed);
 
   if (!result.success) {
-    throw new Error(`${configPath} formatter wrong:${result.error}`);
+    throw new Error(`
+      ${configPath} format error.
+      OriginContent:
+      ${yamlContent}
+      Error: 
+      ${result.error}
+    `);
   }
 
   return result.data;
 }
+
+const llmConfig = loadConfig(DEFAULT_CONFIG_PATH);
 
 // AI Client
 export class AIClient {
@@ -39,21 +47,20 @@ export class AIClient {
   provider: Record<string, AIProvider>;
   providersConfig: Record<string, Provider>;
 
-  constructor(configPath: string) {
-    const config = loadConfig(configPath);
+  constructor(config: LLMConfig = llmConfig) {
     this.primaryModel = config.primaryModel;
     this.secondaryModel = config.secondaryModel ?? config.primaryModel;
     this.provider = createAIProvider(config.provider);
     this.providersConfig = config.provider;
   }
 
-  get modles() {
+  get models() {
     return Object.entries(this.providersConfig).flatMap(([key, provider]) => {
       return Object.keys(provider.models).map((model) => `${key}/${model}`);
     });
   }
 
-  generateText: typeof generateText = ({ model: modelArg, ...settings }) => {
+  getLanguageModel(modelArg: LanguageModel) {
     if (typeof modelArg === "string") {
       const [providerName, modelName] = modelArg.split("/");
       const provider = this.provider[providerName];
@@ -62,18 +69,30 @@ export class AIClient {
 
       if (provider) {
         if (providerConfig.npm === "ai/test") {
-          return generateText({
-            model: provider("test"),
-            ...settings,
-          });
+          return provider("test");
         } else if (model) {
-          return generateText({
-            model: provider(model.name),
-            ...settings,
-          });
+          return provider(model.name);
+        } else {
+          throw new Error(
+            `Model "${modelName}" not found in provider "${providerName}"`,
+          );
         }
+      } else {
+        throw new Error(
+          `Provider "${providerName}" not found or not configured`,
+        );
       }
     }
-    return generateText({ model: modelArg, ...settings });
+
+    return modelArg;
+  }
+
+  generateText: typeof generateText = ({ model: modelArg, ...settings }) => {
+    const model = this.getLanguageModel(modelArg);
+
+    return generateText({
+      model: model,
+      ...settings,
+    });
   };
 }
