@@ -1,10 +1,10 @@
 import path from "node:path";
 import { readFileSync } from "fs";
 import { load } from "js-yaml";
-import { generateText, LanguageModel, NoSuchModelError, InvalidArgumentError } from "ai";
+import { generateText } from "ai";
 
-import { AIProvider, Provider, LLMConfigSchema, LLMConfig } from "./type";
-import { createAIProvider } from "./provider";
+import { Provider, LLMConfigSchema, LLMConfig, PlanbProvider } from "./type";
+import { createPlanbCompatible } from "./provider";
 import { ConfigValidationError } from "./errors";
 
 const homeDir = process.env.HOME || process.env.USERPROFILE || "/tmp";
@@ -44,13 +44,13 @@ const llmConfig = loadConfig(DEFAULT_CONFIG_PATH);
 export class AIClient {
   primaryModel: string;
   secondaryModel: string;
-  provider: Record<string, AIProvider>;
+  provider: PlanbProvider;
   providersConfig: Record<string, Provider>;
 
   constructor(config: LLMConfig = llmConfig) {
     this.primaryModel = config.primaryModel;
     this.secondaryModel = config.secondaryModel ?? config.primaryModel;
-    this.provider = createAIProvider(config.provider);
+    this.provider = createPlanbCompatible(config.provider);
     this.providersConfig = config.provider;
   }
 
@@ -60,39 +60,8 @@ export class AIClient {
     });
   }
 
-  getLanguageModel(modelArg: LanguageModel) {
-    if (typeof modelArg === "string") {
-      const [providerName, modelName] = modelArg.split("/");
-      const provider = this.provider[providerName];
-      const providerConfig = this.providersConfig[providerName];
-      const model = providerConfig?.models[modelName];
-
-      if (provider) {
-        if (providerConfig.npm === "ai/test") {
-          return provider("test");
-        } else if (model) {
-          return provider(model.name);
-        } else {
-          throw new NoSuchModelError({
-            modelId: modelName,
-            modelType: 'languageModel',
-            message: `Model "${modelName}" not found in provider "${providerName}"`,
-          });
-        }
-      } else {
-        throw new InvalidArgumentError({
-          parameter: 'model',
-          value: modelArg,
-          message: `Provider "${providerName}" not found or not configured`,
-        });
-      }
-    }
-
-    return modelArg;
-  }
-
   generateText: typeof generateText = ({ model: modelArg, ...settings }) => {
-    const model = this.getLanguageModel(modelArg);
+    const model = this.provider(modelArg);
 
     return generateText({
       model: model,

@@ -1,6 +1,6 @@
-import { AISDKError } from 'ai';
+import { AISDKError } from "ai";
 
-const name = 'AI_ConfigValidationError';
+const name = "AI_ConfigValidationError";
 const marker = `vercel.ai.error.${name}`;
 const symbol = Symbol.for(marker);
 

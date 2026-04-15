@@ -1,6 +1,8 @@
-import z from "zod";
 import { OpenAICompatibleProvider } from "@ai-sdk/openai-compatible";
+import { ProviderV3 } from "@ai-sdk/provider";
+import { LanguageModel } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
+import z from "zod";
 
 export const NPM_PROVIDER = ["@ai-sdk/openai-compatible", "ai/test"] as const;
 export const NpmProviderSchema = z.enum(NPM_PROVIDER);
@@ -30,6 +32,24 @@ export const LLMConfigSchema = z.object({
 });
 export type LLMConfig = z.infer<typeof LLMConfigSchema>;
 
-export type AIProvider =
-  // | LanguageModel
-  OpenAICompatibleProvider | ((model?: string) => MockLanguageModelV3);
+export const AgentSchema = z.object({
+  description: z.string(),
+  model: z.string().optional(),
+  temperature: z.number().max(1).min(0).optional(),
+  steps: z.int().optional(),
+  tools: z.array(z.string()).optional(),
+});
+
+export type Agent = z.infer<typeof AgentSchema>;
+
+export interface MockProvider<
+  IMAGE_MODEL_IDS extends string = string,
+> extends Omit<ProviderV3, "imageModel"> {
+  (modelId: IMAGE_MODEL_IDS): MockLanguageModelV3;
+}
+
+export interface PlanbProvider<
+  IMAGE_MODEL_IDS extends LanguageModel = LanguageModel,
+> extends Omit<ProviderV3, "imageModel"> {
+  (modelId: IMAGE_MODEL_IDS): MockLanguageModelV3 | IMAGE_MODEL_IDS;
+}
