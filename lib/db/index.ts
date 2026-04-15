@@ -46,3 +46,5 @@ export function closeDatabase() {
     sqlite = null;
   }
 }
+
+export type DB = typeof db;

@@ -1,7 +1,13 @@
 import path from "node:path";
 import { readFileSync } from "fs";
 import { load } from "js-yaml";
-import { Agent, LanguageModel, ModelMessage, ToolLoopAgent } from "ai";
+import {
+  generateText,
+  Agent,
+  LanguageModel,
+  ModelMessage,
+  ToolLoopAgent,
+} from "ai";
 
 import {
   AgentId,
@@ -111,10 +117,10 @@ export class AIClient {
   generate(
     agentId: AgentId,
     prompt: string | ModelMessage[],
-    options: Omit<
-      Parameters<ToolLoopAgent["generate"]>[0],
-      "prompt" | "messages"
-    > = {},
+    options?: Omit<
+      Parameters<typeof generateText>[0],
+      "model" | "prompt" | "messages"
+    >,
   ) {
     if (this._agents) {
       const agent = this._agents[agentId];

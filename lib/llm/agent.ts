@@ -2,7 +2,12 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import matter from "gray-matter";
 
-import type { ToolLoopAgentSettings, ToolSet } from "ai";
+import {
+  hasToolCall,
+  stepCountIs,
+  type ToolLoopAgentSettings,
+  type ToolSet,
+} from "ai";
 
 import { ConfigValidationError } from "./errors";
 import Tools from "./tool";
@@ -30,7 +35,7 @@ export async function loadAgentsConfig() {
           cause: result.error,
         });
       }
-      const { model, tools, ...config } = result.data;
+      const { model, tools, stopWhen, ...config } = result.data;
 
       const toolset = tools?.reduce<ToolSet>((acc, toolName) => {
         if (toolName in Tools) {
@@ -41,10 +46,18 @@ export async function loadAgentsConfig() {
         return acc;
       }, {});
 
+      const stopWhenFun = stopWhen
+        ? [
+            stopWhen.hasToolCall && hasToolCall(stopWhen.hasToolCall),
+            stepCountIs(stopWhen.maxStep ?? 20),
+          ].filter((func) => !!func)
+        : stepCountIs(20);
+
       const agentSettings: ToolLoopAgentSettings = {
         model: model ?? "primay",
         instructions: instructions,
         tools: toolset,
+        stopWhen: stopWhenFun,
         ...config,
       };
 

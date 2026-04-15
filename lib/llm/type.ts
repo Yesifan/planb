@@ -1,7 +1,8 @@
 import { ProviderV3 } from "@ai-sdk/provider";
-import { LanguageModel } from "ai";
+import { hasToolCall, LanguageModel } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import z from "zod";
+import { DB } from "../db";
 
 export type AgentId =
   | "Arbiter"
@@ -45,8 +46,13 @@ export const AgentSchema = z.object({
   description: z.string(),
   model: z.string().optional(),
   temperature: z.number().max(1).min(0).optional(),
-  steps: z.int().optional(),
   tools: z.array(z.string()).optional(),
+  stopWhen: z
+    .object({
+      hasToolCall: z.string().optional(),
+      maxStep: z.int().optional(),
+    })
+    .optional(),
 });
 
 export type Agent = z.infer<typeof AgentSchema>;
@@ -63,4 +69,9 @@ export interface PlanbProvider<
   (modelId: IMAGE_MODEL_IDS): MockLanguageModelV3 | IMAGE_MODEL_IDS;
 
   models(): string[];
+}
+
+export interface ToolContext {
+  db: DB;
+  sessionId: string;
 }
