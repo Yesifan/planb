@@ -1,8 +1,9 @@
 primaryModel: "mock/test"
+
 provider:
   mock:
     npm: "ai/test"
     name: mock
     models:
       test:
-        name: test
+        name: Test

@@ -41,3 +41,33 @@ export class ConfigValidationError extends AISDKError {
     return AISDKError.hasMarker(error, marker);
   }
 }
+
+export class AgentUnInitialized extends AISDKError {
+  private readonly [symbol] = true; // used in isInstance
+
+  constructor() {
+    super({
+      name,
+      message: `The agent has not been initialized.`,
+    });
+  }
+
+  static isInstance(error: unknown): error is ConfigValidationError {
+    return AISDKError.hasMarker(error, marker);
+  }
+}
+
+export class AgentNotFoundError extends AISDKError {
+  private readonly [symbol] = true; // used in isInstance
+
+  constructor({ agent }: { agent: string }) {
+    super({
+      name,
+      message: `${agent} not found`,
+    });
+  }
+
+  static isInstance(error: unknown): error is ConfigValidationError {
+    return AISDKError.hasMarker(error, marker);
+  }
+}

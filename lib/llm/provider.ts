@@ -58,5 +58,11 @@ export function createPlanbCompatible<IMAGE_MODEL_IDS extends LanguageModel>(
     return modelId;
   };
 
+  planbProvider.models = () => {
+    return Object.entries(providersConfig).flatMap(([key, provider]) => {
+      return Object.keys(provider.models).map((model) => `${key}/${model}`);
+    });
+  };
+
   return planbProvider as PlanbProvider<IMAGE_MODEL_IDS>;
 }

@@ -1,8 +1,17 @@
-import { OpenAICompatibleProvider } from "@ai-sdk/openai-compatible";
 import { ProviderV3 } from "@ai-sdk/provider";
 import { LanguageModel } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import z from "zod";
+
+export type AgentId =
+  | "Arbiter"
+  | "Archivist"
+  | "Chronicler"
+  | "ExMachina"
+  | "Oracle"
+  | "Titler"
+  | "Weaver"
+  | (string & {});
 
 export const NPM_PROVIDER = ["@ai-sdk/openai-compatible", "ai/test"] as const;
 export const NpmProviderSchema = z.enum(NPM_PROVIDER);
@@ -52,4 +61,6 @@ export interface PlanbProvider<
   IMAGE_MODEL_IDS extends LanguageModel = LanguageModel,
 > extends Omit<ProviderV3, "imageModel"> {
   (modelId: IMAGE_MODEL_IDS): MockLanguageModelV3 | IMAGE_MODEL_IDS;
+
+  models(): string[];
 }
