@@ -1,8 +1,15 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  reactCompiler: true,
+  reactCompiler: false,
+  turbopack: {
+    rules: {
+      "*.md": {
+        loaders: [require.resolve("./loader/matter.js")],
+        as: "*.js",
+      },
+    },
+  },
 };
 
 export default nextConfig;

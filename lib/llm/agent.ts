@@ -1,68 +1,191 @@
-import fs from "node:fs/promises";
-import path from "node:path";
-import matter from "gray-matter";
-
 import {
+  generateText,
+  GenerateTextOnStepFinishCallback,
+  GenerateTextResult,
   hasToolCall,
+  Output,
+  Prompt,
   stepCountIs,
-  type ToolLoopAgentSettings,
+  StepResult,
+  streamText,
+  StreamTextOnStepFinishCallback,
+  StreamTextResult,
+  ToolLoopAgentSettings,
   type ToolSet,
 } from "ai";
 
-import { ConfigValidationError } from "./errors";
 import Tools from "./tool";
-import { AgentSchema } from "./type";
+import { Agent, PlanbProvider } from "./type";
+import { primaryModel, secondaryModel } from "./provider";
 
-const AGENTS_DIR = path.resolve(__dirname, "../../planb/agents");
+export class PlanbAgent<
+  CALL_OPTIONS = never,
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+  TOOLS extends ToolSet = {},
+  OUTPUT extends Output.Output = never,
+> {
+  readonly version = "agent-v1";
 
-export async function loadAgentsConfig() {
-  const entries = await fs.readdir(AGENTS_DIR, { withFileTypes: true });
+  private readonly settings: ToolLoopAgentSettings<CALL_OPTIONS, TOOLS, OUTPUT>;
 
-  const agentPromises = entries
-    .filter((entry) => entry.isFile() && entry.name.endsWith(".md"))
-    .map(async (entry) => {
-      const agentName = entry.name.split(".")[0];
-      const fullPath = path.join(AGENTS_DIR, entry.name);
-      const content = await fs.readFile(fullPath);
-      const { data, content: instructions } = matter(content);
+  constructor(settings: ToolLoopAgentSettings<CALL_OPTIONS, TOOLS, OUTPUT>) {
+    this.settings = settings;
+  }
 
-      const result = AgentSchema.safeParse(data);
-      if (!result.success) {
-        throw new ConfigValidationError({
-          configPath: fullPath,
-          originalContent: content.toString("utf8"),
-          message: result.error.message,
-          cause: result.error,
-        });
-      }
-      const { model, tools, stopWhen, ...config } = result.data;
+  /**
+   * The id of the agent.
+   */
+  get id(): string | undefined {
+    return this.settings.id;
+  }
 
-      const toolset = tools?.reduce<ToolSet>((acc, toolName) => {
-        if (toolName in Tools) {
-          acc[toolName] = Tools[toolName as keyof typeof Tools];
-        } else {
-          console.debug(`${toolName} tool not found with ${agentName} agent!`);
-        }
-        return acc;
-      }, {});
+  /**
+   * The tools that the agent can use.
+   */
+  get tools(): TOOLS {
+    return this.settings.tools as TOOLS;
+  }
 
-      const stopWhenFun = stopWhen
-        ? [
-            stopWhen.hasToolCall && hasToolCall(stopWhen.hasToolCall),
-            stepCountIs(stopWhen.maxStep ?? 20),
-          ].filter((func) => !!func)
-        : stepCountIs(20);
+  private async prepareCall(options: {
+    prompt?: string | Array<import("@ai-sdk/provider-utils").ModelMessage>;
+    messages?: Array<import("@ai-sdk/provider-utils").ModelMessage>;
+    options?: CALL_OPTIONS;
+  }): Promise<
+    Omit<
+      ToolLoopAgentSettings<CALL_OPTIONS, TOOLS, OUTPUT>,
+      "prepareCall" | "instructions" | "onStepFinish"
+    > &
+      Prompt
+  > {
+    const { onStepFinish: _settingsOnStepFinish, ...settingsWithoutCallback } =
+      this.settings;
+    const baseCallArgs = {
+      ...settingsWithoutCallback,
+      stopWhen: this.settings.stopWhen ?? stepCountIs(20),
+      ...options,
+    };
 
-      const agentSettings: ToolLoopAgentSettings = {
-        model: model ?? "primay",
-        instructions: instructions,
-        tools: toolset,
-        stopWhen: stopWhenFun,
-        ...config,
+    const preparedCallArgs =
+      (await this.settings.prepareCall?.(
+        baseCallArgs as Parameters<
+          NonNullable<
+            ToolLoopAgentSettings<CALL_OPTIONS, TOOLS, OUTPUT>["prepareCall"]
+          >
+        >[0],
+      )) ?? baseCallArgs;
+
+    const { instructions, messages, prompt, ...callArgs } = preparedCallArgs;
+
+    return {
+      ...callArgs,
+
+      // restore prompt types
+      ...({ system: instructions, messages, prompt } as Prompt),
+    };
+  }
+
+  private mergeOnStepFinishCallbacks(
+    methodCallback:
+      | GenerateTextOnStepFinishCallback<TOOLS>
+      | StreamTextOnStepFinishCallback<TOOLS>
+      | undefined,
+  ) {
+    const constructorCallback = this.settings.onStepFinish;
+
+    if (methodCallback && constructorCallback) {
+      return async (stepResult: StepResult<TOOLS>) => {
+        await constructorCallback(stepResult);
+        await methodCallback(stepResult);
       };
+    }
 
-      return [agentName, agentSettings] as const;
+    return methodCallback ?? constructorCallback;
+  }
+
+  /**
+   * Generates an output from the agent (non-streaming).
+   */
+  async generate({
+    abortSignal,
+    timeout,
+    onStepFinish,
+    ...options
+  }: Omit<Parameters<typeof generateText<TOOLS, OUTPUT>>[0], "model">): Promise<
+    GenerateTextResult<TOOLS, OUTPUT>
+  > {
+    return generateText({
+      ...(await this.prepareCall(options)),
+      abortSignal,
+      timeout,
+      onStepFinish: this.mergeOnStepFinishCallbacks(
+        onStepFinish,
+      ) as GenerateTextOnStepFinishCallback<TOOLS>,
     });
+  }
 
-  return await Promise.all(agentPromises);
+  /**
+   * Streams an output from the agent (streaming).
+   */
+  async stream({
+    abortSignal,
+    timeout,
+    experimental_transform,
+    onStepFinish,
+    ...options
+  }: Omit<Parameters<typeof streamText<TOOLS, OUTPUT>>[0], "model">): Promise<
+    StreamTextResult<TOOLS, OUTPUT>
+  > {
+    return streamText({
+      ...(await this.prepareCall(options)),
+      abortSignal,
+      timeout,
+      experimental_transform,
+      onStepFinish: this.mergeOnStepFinishCallbacks(onStepFinish),
+    });
+  }
+}
+
+export function createAgent(
+  agent: string,
+  provider: PlanbProvider,
+  {
+    content,
+    frontmatter,
+  }: {
+    content: string;
+    frontmatter: Agent;
+  },
+) {
+  const { model, tools, stopWhen, ...config } = frontmatter;
+
+  const toolset = tools?.reduce<ToolSet>((acc, toolName) => {
+    if (toolName in Tools) {
+      acc[toolName] = Tools[toolName as keyof typeof Tools];
+    } else {
+      console.debug(`${toolName} tool not found with ${agent} agent!`);
+    }
+    return acc;
+  }, {});
+
+  const stopWhenFun = stopWhen
+    ? [
+        stopWhen.hasToolCall && hasToolCall(stopWhen.hasToolCall),
+        stepCountIs(stopWhen.maxStep ?? 20),
+      ].filter((func) => !!func)
+    : stepCountIs(20);
+
+  const modelId =
+    model === "primary"
+      ? primaryModel
+      : model === "secondary"
+        ? secondaryModel
+        : model;
+
+  return new PlanbAgent({
+    model: provider(modelId ?? primaryModel),
+    instructions: content,
+    tools: toolset,
+    stopWhen: stopWhenFun,
+    ...config,
+  });
 }

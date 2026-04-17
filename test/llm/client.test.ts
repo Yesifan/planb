@@ -1,43 +1,24 @@
-import path from "path";
 import { sleep } from "bun";
-import {
-  describe,
-  test,
-  expect,
-  beforeEach,
-  afterEach,
-  afterAll,
-} from "bun:test";
-import { AIClient, loadConfig } from "@/lib/llm";
+import { describe, test, expect, beforeEach, afterEach } from "bun:test";
+import { TitlerAgent, ArbiterAgent, provider } from "@/lib/llm";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
-import { eq, desc } from "drizzle-orm";
-import { db as testdb, closeDatabase } from "@/lib/db";
+import { eq } from "drizzle-orm";
+import { db as testdb } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
-
-const configPath = path.resolve(__dirname, "../../planb.test.yml");
-const llmConfig = loadConfig(configPath);
-const client = new AIClient(llmConfig);
 
 describe("AIClient", async () => {
   await sleep(100);
 
-  test("should read and parse valid planb.yml config correctly", () => {
-    expect(client).toBeDefined();
-    expect(client.primaryModel).toBe("mock/test");
-  });
-
   test("should be list models", () => {
-    expect(client.models).toBeArray();
-    expect(client.models).toContain("mock/test");
-  });
-
-  test("Agent list and find the 'Titler' Agent", async () => {
-    expect(client.agents).toBeArray();
-    expect(client.agents).toContain("Titler");
+    const models = provider.models();
+    expect(models).toBeArray();
+    expect(models).toContain("mock/test");
   });
 
   test("should call agent generate successfully", async () => {
-    const result = await client.generate("Arbiter", "Hello, test!");
+    const result = await ArbiterAgent.generate({
+      prompt: "Hello, test!",
+    });
 
     expect(result).toBeDefined();
     expect(result.text).toBe("Hello, world!");
@@ -56,10 +37,6 @@ describe("AIClient with DB", async () => {
     await testdb.delete(schema.users);
   });
 
-  afterAll(() => {
-    closeDatabase();
-  });
-
   test("Success: Agent generate with tool call loop", async () => {
     const sessionId = "session-m1";
 
@@ -75,16 +52,19 @@ describe("AIClient with DB", async () => {
       title: "Message Session",
     });
 
-    const result = await client.generate("Titler", "Hello, test!", {
+    const result = await TitlerAgent.generate({
+      prompt: "Hello, test!",
       experimental_context: { db: testdb, sessionId: sessionId },
     });
 
     expect(result).toBeDefined();
     expect(result.toolResults[0].output).toBe("Update Success!");
 
-    const session = await testdb.query.sessions.findFirst({
-      where: eq(schema.sessions.id, sessionId),
-    });
+    const [session] = await testdb
+      .select()
+      .from(schema.sessions)
+      .where(eq(schema.sessions.id, sessionId))
+      .limit(1);
 
     expect(session).toBeDefined();
     expect(session?.title).toBe("Mock Title");
@@ -93,7 +73,8 @@ describe("AIClient with DB", async () => {
   test("Fail: Agent generate with tool call loop", async () => {
     const sessionId = "session-m2";
 
-    const result = await client.generate("Titler", "Hello, test!", {
+    const result = await TitlerAgent.generate({
+      prompt: "Hello, test!",
       experimental_context: { db: testdb, sessionId: sessionId },
     });
 

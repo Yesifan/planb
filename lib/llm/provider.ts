@@ -1,10 +1,38 @@
+import { readFileSync } from "node:fs";
+import { load } from "js-yaml";
 import {
   createOpenAICompatible,
   OpenAICompatibleProvider,
 } from "@ai-sdk/openai-compatible";
 import { LanguageModel, NoSuchModelError, InvalidArgumentError } from "ai";
 import { createMockProvider } from "./mock-provider";
-import { Provider, MockProvider, PlanbProvider } from "./type";
+import { Provider, MockProvider, PlanbProvider, LLMConfigSchema } from "./type";
+import { ConfigValidationError } from "./errors";
+
+const PLANB_SETTINGS_PATH = process.env.PLANB_SETTINGS_PATH ?? "planb.yml";
+
+console.log("PLANB_SETTINGS_PATH", PLANB_SETTINGS_PATH);
+const yamlContent = readFileSync(
+  /*turbopackIgnore: true*/ PLANB_SETTINGS_PATH,
+  "utf-8",
+);
+const parsed = load(yamlContent);
+
+const result = LLMConfigSchema.safeParse(parsed);
+if (!result.success) {
+  throw new ConfigValidationError({
+    configPath: PLANB_SETTINGS_PATH,
+    originalContent: yamlContent,
+    message: result.error.message,
+    cause: result.error,
+  });
+}
+
+export const planbSettings = result.data;
+
+export const primaryModel = planbSettings.primaryModel;
+export const secondaryModel = planbSettings.secondaryModel;
+export const provider = createPlanbCompatible(planbSettings.provider);
 
 export function createPlanbCompatible<IMAGE_MODEL_IDS extends LanguageModel>(
   providersConfig: Record<string, Provider>,
@@ -44,14 +72,20 @@ export function createPlanbCompatible<IMAGE_MODEL_IDS extends LanguageModel>(
           throw new NoSuchModelError({
             modelId: modelName,
             modelType: "languageModel",
-            message: `Model "${modelName}" not found in provider "${providerName}"`,
+            message:
+              `Model "${modelName}" not found in provider "${providerName}"` +
+              `config:` +
+              JSON.stringify(providersConfig),
           });
         }
       } else {
         throw new InvalidArgumentError({
           parameter: "model",
           value: modelId,
-          message: `Provider "${providerName}" not found or not configured`,
+          message:
+            `Provider "${providerName}" not found or not configured` +
+            `config:` +
+            JSON.stringify(providersConfig),
         });
       }
     }
