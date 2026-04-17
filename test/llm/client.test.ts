@@ -1,9 +1,10 @@
-import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { TitlerAgent, ArbiterAgent, provider } from "@/lib/llm";
-import { migrate } from "drizzle-orm/bun-sqlite/migrator";
+import { afterEach,beforeEach, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
+import { migrate } from "drizzle-orm/bun-sqlite/migrator";
+
 import { db as testdb } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
+import { ArbiterAgent, provider,TitlerAgent } from "@/lib/llm";
 
 describe("Base Test", async () => {
   test("should be list models", () => {

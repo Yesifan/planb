@@ -1,7 +1,8 @@
-import * as schema from "./schema";
-import { relations } from "./relations";
-import { drizzle } from "drizzle-orm/bun-sqlite";
 import { Database } from "bun:sqlite";
+import { drizzle } from "drizzle-orm/bun-sqlite";
+
+import { relations } from "./relations";
+import * as schema from "./schema";
 
 // SQLite database instance
 const DB_FILE_NAME = process.env.DB_FILE_NAME ?? "planb.sqlite";

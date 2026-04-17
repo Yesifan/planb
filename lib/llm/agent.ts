@@ -1,22 +1,19 @@
-import {
-  generateText,
+import type {
   GenerateTextOnStepFinishCallback,
   GenerateTextResult,
-  hasToolCall,
   Output,
   Prompt,
-  stepCountIs,
   StepResult,
-  streamText,
   StreamTextOnStepFinishCallback,
   StreamTextResult,
   ToolLoopAgentSettings,
-  type ToolSet,
+  ToolSet,
 } from "ai";
+import { generateText, hasToolCall,stepCountIs, streamText } from "ai";
 
+import { primaryModel, secondaryModel } from "./provider";
 import Tools from "./tool";
 import { Agent, PlanbProvider } from "./type";
-import { primaryModel, secondaryModel } from "./provider";
 
 export class PlanbAgent<
   CALL_OPTIONS = never,

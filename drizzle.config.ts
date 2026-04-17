@@ -1,5 +1,6 @@
-import { defineConfig } from "drizzle-kit";
 import "./envConfig";
+
+import { defineConfig } from "drizzle-kit";
 
 console.debug("DB_FILE_NAME", process.env.DB_FILE_NAME);
 

@@ -1,7 +1,8 @@
 import { ProviderV3 } from "@ai-sdk/provider";
-import { hasToolCall, LanguageModel } from "ai";
+import { LanguageModel } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import z from "zod";
+
 import { DB } from "../db";
 
 export type AgentId =

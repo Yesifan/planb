@@ -1,11 +1,13 @@
 // test-setup.ts
+import "@/envConfig";
+
 import { plugin } from "bun";
 import { beforeAll, beforeEach } from "bun:test";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
-import "@/envConfig";
+
 import { db as testdb } from "@/lib/db";
-import { matterBunLoader } from "@/loader/matter";
 import * as schema from "@/lib/db/schema";
+import { matterBunLoader } from "@/loader/matter";
 
 plugin({
   name: "next-js-polyfills",

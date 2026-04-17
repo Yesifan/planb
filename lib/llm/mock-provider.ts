@@ -1,8 +1,8 @@
+import { LanguageModelV3Content } from "@ai-sdk/provider";
+import { LanguageModel } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 
-import { LanguageModel } from "ai";
 import { MockProvider } from "./type";
-import { LanguageModelV3Content } from "@ai-sdk/provider";
 
 export function createMockProvider<CHAT_MODEL_IDS extends LanguageModel>() {
   const defaultMock = new MockLanguageModelV3({

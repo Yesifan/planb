@@ -1,8 +1,9 @@
-import { ToolContext } from "@/lib/llm/type";
 import { tool } from "ai";
-import { z } from "zod";
-import { sessions } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { z } from "zod";
+
+import { sessions } from "@/lib/db/schema";
+import { ToolContext } from "@/lib/llm/type";
 
 export const updateSessionTitle = tool({
   description: "update Session Title",
