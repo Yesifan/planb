@@ -2,7 +2,7 @@ import { tool } from "ai";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 
-import { sessions } from "@/lib/db/schema";
+import { chat } from "@/lib/db/schema";
 import { ToolContext } from "@/lib/llm/type";
 
 export const updateSessionTitle = tool({
@@ -15,11 +15,11 @@ export const updateSessionTitle = tool({
     const { db, sessionId } = context.experimental_context as ToolContext;
     try {
       const result = await db
-        .update(sessions)
+        .update(chat)
         .set({
           title: title,
         })
-        .where(eq(sessions.id, sessionId))
+        .where(eq(chat.id, sessionId))
         .returning();
       if (result.length > 0) {
         return "Update Success!";

@@ -6,11 +6,29 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 <!-- END:nextjs-agent-rules -->
 
+# Planb 项目概览
+
+**类型**: AI 驱动的互动叙事系统  
+**核心特性**: 多 Agent 协作编排、Markdown 配置化、AI 流式生成
+**架构特点**: Fullstack Next.js, 简单 API 都使用 Nextjs Action
+
+## 技术栈
+
+| 层级   | 技术                          | 说明                   |
+| ------ | ----------------------------- | ---------------------- |
+| 框架   | Next.js 16.2.3 + React 19.2.4 | App Router 模式        |
+| 运行时 | Bun                           | 包管理 + 运行时        |
+| 语言   | TypeScript 5                  | 严格模式               |
+| 数据库 | SQLite + Drizzle ORM(beta)    | `bun:sqlite` 驱动      |
+| AI/LLM | Vercel AI SDK 6.0+            | 流式生成、Tool Calling |
+| UI     | shadcn/ui + Tailwind CSS v4   | Radix UI 底层          |
+| 验证   | Zod 4.x                       | Schema 验证            |
+
 ## 代码质量
 
 <IMPORTANT>每次更新完代码运行下面的命令检查语法错误</IMPORTANT>，如果有则进行修正。
 
-```
+```bash
 # ESLint
 bun lint --fix
 # Typescript
@@ -27,13 +45,6 @@ bunx tsc --noEmit
 bun test              # 运行所有测试
 bun test test/xxx.test.ts  # 运行指定测试文件
 ```
-
-#### 数据库测试
-
-项目使用环境变量 `NODE_ENV` 来区分开发和测试环境：
-
-- **开发/生产** (`NODE_ENV !== "test"`): 使用 `bun:sqlite` + 文件数据库
-- **测试** (`NODE_ENV === "test"`): 使用 `bun:sqlite` + 内存数据库 (`:memory:`)
 
 ---
 

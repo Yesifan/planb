@@ -21,7 +21,15 @@ beforeAll(() => {
 });
 
 beforeEach(async () => {
+  // Clear tables if they exist - for tests that run before migrations are applied
+
   await testdb.delete(schema.messages);
-  await testdb.delete(schema.sessions);
-  await testdb.delete(schema.users);
+  await testdb.delete(schema.chat);
+  await testdb.delete(schema.session);
+  await testdb.delete(schema.account);
+  await testdb.delete(schema.verification);
+  await testdb.delete(schema.user);
+
+  // Better Auth tables will be cleared when needed in tests
+  // user, session, account, verification are created by Better Auth migrations
 });

@@ -9,7 +9,7 @@ import type {
   ToolLoopAgentSettings,
   ToolSet,
 } from "ai";
-import { generateText, hasToolCall,stepCountIs, streamText } from "ai";
+import { generateText, hasToolCall, stepCountIs, streamText } from "ai";
 
 import { primaryModel, secondaryModel } from "./provider";
 import Tools from "./tool";
@@ -54,6 +54,7 @@ export class PlanbAgent<
     > &
       Prompt
   > {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { onStepFinish: _settingsOnStepFinish, ...settingsWithoutCallback } =
       this.settings;
     const baseCallArgs = {

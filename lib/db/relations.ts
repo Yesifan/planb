@@ -3,20 +3,34 @@ import { defineRelationsPart } from "drizzle-orm";
 import * as schema from "./schema";
 
 export const relations = defineRelationsPart(schema, (r) => ({
-  users: {
-    sessions: r.many.sessions(),
-  },
-  sessions: {
-    user: r.one.users({
-      from: r.sessions.userId,
-      to: r.users.id,
-    }),
+  chat: {
     messages: r.many.messages(),
+    user: r.one.user({
+      from: r.chat.userId,
+      to: r.user.id,
+    }),
   },
   messages: {
-    session: r.one.sessions({
-      from: r.messages.sessionId,
-      to: r.sessions.id,
+    chat: r.one.chat({
+      from: r.messages.chatId,
+      to: r.chat.id,
+    }),
+  },
+  user: {
+    sessions: r.many.session(),
+    accounts: r.many.account(),
+    chats: r.many.chat(),
+  },
+  session: {
+    user: r.one.user({
+      from: r.session.userId,
+      to: r.user.id,
+    }),
+  },
+  account: {
+    user: r.one.user({
+      from: r.account.userId,
+      to: r.user.id,
     }),
   },
 }));
