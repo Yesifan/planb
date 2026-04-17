@@ -6,9 +6,8 @@
     "dev": "bun --bun next dev",
     "build": "bun --bun next build",
     "start": "bun --bun next start",
-    "db:push": "bun --bun drizzle-kit push",
     "db:generate": "bun --bun drizzle-kit generate",
-    "db:migrate": "bun run drizzle-kit migrate",
+    "db:migrate": "bun run ./scripts/drizzle.ts",
     "lint": "eslint"
   },
   "dependencies": {

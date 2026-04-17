@@ -3,8 +3,8 @@
  * Using Drizzle ORM with SQLite
  */
 
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core"
-import { sql } from "drizzle-orm"
+import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
 
 /**
  * Users table - stores user accounts
@@ -20,7 +20,7 @@ export const users = sqliteTable("users", {
   updatedAt: integer("updated_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
-})
+});
 
 /**
  * Sessions table - stores chat sessions
@@ -35,7 +35,7 @@ export const sessions = sqliteTable("sessions", {
   updatedAt: integer("updated_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
-})
+});
 
 /**
  * Messages table - stores chat messages
@@ -57,12 +57,12 @@ export const messages = sqliteTable("messages", {
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
-})
+});
 
 // Export types
-export type User = typeof users.$inferSelect
-export type NewUser = typeof users.$inferInsert
-export type Session = typeof sessions.$inferSelect
-export type NewSession = typeof sessions.$inferInsert
-export type Message = typeof messages.$inferSelect
-export type NewMessage = typeof messages.$inferInsert
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
+export type Session = typeof sessions.$inferSelect;
+export type NewSession = typeof sessions.$inferInsert;
+export type Message = typeof messages.$inferSelect;
+export type NewMessage = typeof messages.$inferInsert;

@@ -1,14 +1,7 @@
-import {
-  describe,
-  test,
-  expect,
-  afterAll,
-  afterEach,
-  beforeEach,
-} from "bun:test";
+import { describe, test, expect, afterEach, beforeEach } from "bun:test";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import { eq, desc } from "drizzle-orm";
-import { db as testdb, closeDatabase } from "@/lib/db";
+import { db as testdb } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 
 describe("Database CRUD Operations", () => {
@@ -19,10 +12,6 @@ describe("Database CRUD Operations", () => {
     await testdb.delete(schema.messages);
     await testdb.delete(schema.sessions);
     await testdb.delete(schema.users);
-  });
-
-  afterAll(() => {
-    closeDatabase();
   });
 
   describe("Users", () => {
