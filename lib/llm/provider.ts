@@ -11,7 +11,8 @@ import { ConfigValidationError } from "./errors";
 
 const PLANB_SETTINGS_PATH = process.env.PLANB_SETTINGS_PATH ?? "planb.yml";
 
-console.log("PLANB_SETTINGS_PATH", PLANB_SETTINGS_PATH);
+console.debug("PLANB_SETTINGS_PATH", PLANB_SETTINGS_PATH);
+
 const yamlContent = readFileSync(
   /*turbopackIgnore: true*/ PLANB_SETTINGS_PATH,
   "utf-8",

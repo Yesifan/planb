@@ -1,4 +1,3 @@
-import { sleep } from "bun";
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
 import { TitlerAgent, ArbiterAgent, provider } from "@/lib/llm";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
@@ -6,9 +5,7 @@ import { eq } from "drizzle-orm";
 import { db as testdb } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 
-describe("AIClient", async () => {
-  await sleep(100);
-
+describe("Base Test", async () => {
   test("should be list models", () => {
     const models = provider.models();
     expect(models).toBeArray();
@@ -25,9 +22,7 @@ describe("AIClient", async () => {
   });
 });
 
-describe("AIClient with DB", async () => {
-  sleep(100);
-
+describe("Tool Call Test", async () => {
   beforeEach(() => {
     migrate(testdb, { migrationsFolder: "./drizzle" });
   });
