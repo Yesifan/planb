@@ -11,6 +11,8 @@ describe("Database CRUD Operations", () => {
         id: "chat-2",
         userId: "user-2",
         title: "Test Chat",
+        createdAt: new Date(),
+        updatedAt: new Date(),
       });
 
       const result = await testdb
@@ -28,6 +30,8 @@ describe("Database CRUD Operations", () => {
         id: "chat-3",
         userId: "user-3",
         title: "Old Title",
+        createdAt: new Date(),
+        updatedAt: new Date(),
       });
 
       await testdb
@@ -49,6 +53,8 @@ describe("Database CRUD Operations", () => {
         id: "chat-4",
         userId: "user-4",
         title: "Delete Me",
+        createdAt: new Date(),
+        updatedAt: new Date(),
       });
 
       await testdb.delete(schema.chat).where(eq(schema.chat.id, "chat-4"));
@@ -68,6 +74,8 @@ describe("Database CRUD Operations", () => {
         id: "chat-m1",
         userId: "user-1",
         title: "Message Test Chat",
+        createdAt: new Date(),
+        updatedAt: new Date(),
       });
 
       await testdb.insert(schema.messages).values({
@@ -75,6 +83,7 @@ describe("Database CRUD Operations", () => {
         chatId: "chat-m1",
         role: "user",
         content: "Hello World",
+        createdAt: new Date(),
       });
 
       const result = await testdb
@@ -92,6 +101,8 @@ describe("Database CRUD Operations", () => {
         id: "chat-m2",
         userId: "user-2",
         title: "Update Test",
+        createdAt: new Date(),
+        updatedAt: new Date(),
       });
 
       await testdb.insert(schema.messages).values({
@@ -99,6 +110,7 @@ describe("Database CRUD Operations", () => {
         chatId: "chat-m2",
         role: "assistant",
         content: "Old content",
+        createdAt: new Date(),
       });
 
       await testdb
@@ -120,6 +132,8 @@ describe("Database CRUD Operations", () => {
         id: "chat-m3",
         userId: "user-3",
         title: "Delete Message",
+        createdAt: new Date(),
+        updatedAt: new Date(),
       });
 
       await testdb.insert(schema.messages).values({
@@ -127,6 +141,7 @@ describe("Database CRUD Operations", () => {
         chatId: "chat-m3",
         role: "user",
         content: "To be deleted",
+        createdAt: new Date(),
       });
 
       await testdb

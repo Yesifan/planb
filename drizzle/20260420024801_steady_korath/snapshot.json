@@ -1,9 +1,9 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "e7cbba3f-230d-436a-a81e-0591f92e1f4e",
+  "id": "2e6feb1b-4769-4d8b-9453-71cbfc8ac47a",
   "prevIds": [
-    "38ab3598-b546-4d18-b071-09f1928e98c0"
+    "00000000-0000-0000-0000-000000000000"
   ],
   "ddl": [
     {
@@ -24,10 +24,6 @@
     },
     {
       "name": "user",
-      "entityType": "tables"
-    },
-    {
-      "name": "verification",
       "entityType": "tables"
     },
     {
@@ -57,6 +53,16 @@
       "default": null,
       "generated": null,
       "name": "provider_id",
+      "entityType": "columns",
+      "table": "account"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "user_id",
       "entityType": "columns",
       "table": "account"
     },
@@ -96,7 +102,27 @@
       "autoincrement": false,
       "default": null,
       "generated": null,
-      "name": "expires_at",
+      "name": "access_token_expires_at",
+      "entityType": "columns",
+      "table": "account"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "refresh_token_expires_at",
+      "entityType": "columns",
+      "table": "account"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "scope",
       "entityType": "columns",
       "table": "account"
     },
@@ -114,7 +140,7 @@
       "type": "integer",
       "notNull": true,
       "autoincrement": false,
-      "default": "(unixepoch())",
+      "default": null,
       "generated": null,
       "name": "created_at",
       "entityType": "columns",
@@ -124,19 +150,9 @@
       "type": "integer",
       "notNull": true,
       "autoincrement": false,
-      "default": "(unixepoch())",
-      "generated": null,
-      "name": "updated_at",
-      "entityType": "columns",
-      "table": "account"
-    },
-    {
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
       "default": null,
       "generated": null,
-      "name": "user_id",
+      "name": "updated_at",
       "entityType": "columns",
       "table": "account"
     },
@@ -174,7 +190,7 @@
       "type": "integer",
       "notNull": true,
       "autoincrement": false,
-      "default": "(unixepoch())",
+      "default": null,
       "generated": null,
       "name": "created_at",
       "entityType": "columns",
@@ -184,7 +200,7 @@
       "type": "integer",
       "notNull": true,
       "autoincrement": false,
-      "default": "(unixepoch())",
+      "default": null,
       "generated": null,
       "name": "updated_at",
       "entityType": "columns",
@@ -284,7 +300,7 @@
       "type": "integer",
       "notNull": true,
       "autoincrement": false,
-      "default": "(unixepoch())",
+      "default": null,
       "generated": null,
       "name": "created_at",
       "entityType": "columns",
@@ -324,7 +340,7 @@
       "type": "integer",
       "notNull": true,
       "autoincrement": false,
-      "default": "(unixepoch())",
+      "default": null,
       "generated": null,
       "name": "created_at",
       "entityType": "columns",
@@ -334,7 +350,7 @@
       "type": "integer",
       "notNull": true,
       "autoincrement": false,
-      "default": "(unixepoch())",
+      "default": null,
       "generated": null,
       "name": "updated_at",
       "entityType": "columns",
@@ -424,7 +440,7 @@
       "type": "integer",
       "notNull": true,
       "autoincrement": false,
-      "default": "(unixepoch())",
+      "default": null,
       "generated": null,
       "name": "created_at",
       "entityType": "columns",
@@ -434,86 +450,11 @@
       "type": "integer",
       "notNull": true,
       "autoincrement": false,
-      "default": "(unixepoch())",
+      "default": null,
       "generated": null,
       "name": "updated_at",
       "entityType": "columns",
       "table": "user"
-    },
-    {
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "id",
-      "entityType": "columns",
-      "table": "verification"
-    },
-    {
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "identifier",
-      "entityType": "columns",
-      "table": "verification"
-    },
-    {
-      "type": "text",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "value",
-      "entityType": "columns",
-      "table": "verification"
-    },
-    {
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "expires_at",
-      "entityType": "columns",
-      "table": "verification"
-    },
-    {
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": "(unixepoch())",
-      "generated": null,
-      "name": "created_at",
-      "entityType": "columns",
-      "table": "verification"
-    },
-    {
-      "type": "integer",
-      "notNull": true,
-      "autoincrement": false,
-      "default": "(unixepoch())",
-      "generated": null,
-      "name": "updated_at",
-      "entityType": "columns",
-      "table": "verification"
-    },
-    {
-      "columns": [
-        "user_id"
-      ],
-      "tableTo": "user",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "nameExplicit": false,
-      "name": "fk_account_user_id_user_id_fk",
-      "entityType": "fks",
-      "table": "account"
     },
     {
       "columns": [
@@ -529,21 +470,6 @@
       "name": "fk_messages_chat_id_chat_id_fk",
       "entityType": "fks",
       "table": "messages"
-    },
-    {
-      "columns": [
-        "user_id"
-      ],
-      "tableTo": "user",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "nameExplicit": false,
-      "name": "fk_session_user_id_user_id_fk",
-      "entityType": "fks",
-      "table": "session"
     },
     {
       "columns": [
@@ -592,12 +518,31 @@
     },
     {
       "columns": [
-        "id"
+        {
+          "value": "user_id",
+          "isExpression": false
+        }
       ],
-      "nameExplicit": false,
-      "name": "verification_pk",
-      "table": "verification",
-      "entityType": "pks"
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "account_userId_idx",
+      "entityType": "indexes",
+      "table": "account"
+    },
+    {
+      "columns": [
+        {
+          "value": "user_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "session_userId_idx",
+      "entityType": "indexes",
+      "table": "session"
     },
     {
       "columns": [

@@ -35,6 +35,8 @@ describe("Tool Call Test", () => {
       id: sessionId,
       userId: "user-m1",
       title: "Message Session",
+      createdAt: new Date(),
+      updatedAt: new Date(),
     });
 
     const result = await TitlerAgent.generate({

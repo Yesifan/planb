@@ -27,7 +27,6 @@ beforeEach(async () => {
   await testdb.delete(schema.chat);
   await testdb.delete(schema.session);
   await testdb.delete(schema.account);
-  await testdb.delete(schema.verification);
   await testdb.delete(schema.user);
 
   // Better Auth tables will be cleared when needed in tests
