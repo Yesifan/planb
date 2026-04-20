@@ -57,5 +57,15 @@ CREATE TABLE `user` (
 	`updated_at` integer NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE `verification` (
+	`id` text PRIMARY KEY,
+	`identifier` text NOT NULL,
+	`value` text NOT NULL,
+	`expires_at` integer NOT NULL,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL
+);
+--> statement-breakpoint
 CREATE INDEX `account_userId_idx` ON `account` (`user_id`);--> statement-breakpoint
-CREATE INDEX `session_userId_idx` ON `session` (`user_id`);
+CREATE INDEX `session_userId_idx` ON `session` (`user_id`);--> statement-breakpoint
+CREATE INDEX `verification_identifier_idx` ON `verification` (`identifier`);

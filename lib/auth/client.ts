@@ -6,4 +6,5 @@ import type { auth } from "./server";
 export const authClient = createAuthClient({
   plugins: [inferAdditionalFields<typeof auth>()],
 });
+export const { useSession, signIn, signOut } = authClient;
 export default authClient;

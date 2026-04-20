@@ -7,14 +7,27 @@ export async function proxy(request: NextRequest) {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
+  const pathname = request.nextUrl.pathname;
 
-  if (!session) {
-    return NextResponse.redirect(new URL("/sign-in", request.url));
+  console.debug("session", session);
+  console.debug("request pathname", request.nextUrl.pathname);
+
+  if (pathname === "/login") {
+    if (session) {
+      return NextResponse.redirect(new URL("/", request.url));
+    }
+  } else {
+    if (!session) {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
   }
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/dashboard"], // Specify the routes the middleware applies to
+  matcher: [
+    // Exclude API routes, static files, image optimizations, and .png files
+    "/((?!api|_next/static|_next/image|.*\\.png|.*\\.json|.*\\.ico$).*)",
+  ],
 };

@@ -1,27 +1,27 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { FaGithub } from "react-icons/fa";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter,CardHeader, CardTitle } from "@/components/ui/card";
-import { signIn,useSession } from "@/lib/auth/client";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import authClient from "@/lib/auth/client";
 
 export default function LoginPage() {
-  const { data: session } = useSession();
-  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-
-  if (session) {
-    router.push("/");
-    return null;
-  }
 
   const handleLogin = async () => {
     setIsLoading(true);
     try {
-      await signIn.social({ provider: "github", callbackURL: "/" });
+      const data = await authClient.signIn.social({ provider: "github" });
+      console.debug("data", data);
     } catch (error) {
       console.error("Login failed:", error);
     } finally {
@@ -37,8 +37,8 @@ export default function LoginPage() {
           <CardDescription>使用 GitHub 账号登录继续访问</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button 
-            onClick={handleLogin} 
+          <Button
+            onClick={handleLogin}
             disabled={isLoading}
             className="w-full gap-2"
           >
