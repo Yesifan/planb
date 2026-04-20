@@ -43,3 +43,6 @@ planb.sqlite
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# ai
+.sisyphus
