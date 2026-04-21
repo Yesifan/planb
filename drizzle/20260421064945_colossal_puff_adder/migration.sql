@@ -22,6 +22,14 @@ CREATE TABLE `chat` (
 	`updated_at` integer NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE `history` (
+	`id` text PRIMARY KEY,
+	`chat_id` text NOT NULL,
+	`title` text NOT NULL,
+	`created_at` integer NOT NULL,
+	CONSTRAINT `fk_history_chat_id_chat_id_fk` FOREIGN KEY (`chat_id`) REFERENCES `chat`(`id`) ON DELETE CASCADE
+);
+--> statement-breakpoint
 CREATE TABLE `messages` (
 	`id` text PRIMARY KEY,
 	`chat_id` text NOT NULL,
@@ -45,6 +53,18 @@ CREATE TABLE `session` (
 	`ip_address` text,
 	`user_agent` text,
 	`user_id` text NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE `story` (
+	`id` text PRIMARY KEY,
+	`chat_id` text NOT NULL,
+	`type` text NOT NULL,
+	`title` text NOT NULL,
+	`describe` text NOT NULL,
+	`worldview` text NOT NULL,
+	`created_at` integer NOT NULL,
+	`updated_at` integer NOT NULL,
+	CONSTRAINT `fk_story_chat_id_chat_id_fk` FOREIGN KEY (`chat_id`) REFERENCES `chat`(`id`) ON DELETE CASCADE
 );
 --> statement-breakpoint
 CREATE TABLE `user` (

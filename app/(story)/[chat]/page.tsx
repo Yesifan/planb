@@ -1,8 +1,5 @@
 "use client";
 
-import { useChat } from "@ai-sdk/react";
-import { readStreamableValue } from "@ai-sdk/rsc";
-import { UIMessage } from "ai";
 import { MessageSquare } from "lucide-react";
 import { useState } from "react";
 
@@ -19,38 +16,14 @@ import {
 } from "@/components/ai-elements/message";
 import {
   PromptInput,
-  type PromptInputMessage,
   PromptInputSubmit,
   PromptInputTextarea,
 } from "@/components/ai-elements/prompt-input";
-import { continueConversation } from "@/lib/actions/llm";
+import { useStory } from "@/hooks/use-story";
 
 const ConversationDemo = () => {
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<UIMessage[]>([]);
-
-  const handleSubmit = async (message: PromptInputMessage) => {
-    const newMessage = await continueConversation(message.text, { chatId: "" });
-
-    let textContent = "";
-
-    for await (const delta of readStreamableValue(newMessage)) {
-      textContent = `${textContent}${delta}`;
-
-      setMessages([
-        {
-          id: "1",
-          role: "user",
-          parts: [{ type: "text", text: message.text }],
-        },
-        {
-          id: "",
-          role: "assistant",
-          parts: [{ type: "text", text: textContent }],
-        },
-      ]);
-    }
-  };
+  const { messages, sendMessage } = useStory();
 
   return (
     <div className="relative flex flex-1 flex-col">
@@ -88,10 +61,7 @@ const ConversationDemo = () => {
           <ConversationScrollButton />
         </Conversation>
 
-        <PromptInput
-          onSubmit={handleSubmit}
-          className="relative mx-auto w-full"
-        >
+        <PromptInput onSubmit={sendMessage} className="relative mx-auto w-full">
           <PromptInputTextarea
             value={input}
             placeholder="Say something..."

@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "5cc7f575-f40a-456e-b864-befb0e1d4169",
+  "id": "8b684e90-24b0-4d29-9062-f60de1eb0ac0",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -15,11 +15,19 @@
       "entityType": "tables"
     },
     {
+      "name": "history",
+      "entityType": "tables"
+    },
+    {
       "name": "messages",
       "entityType": "tables"
     },
     {
       "name": "session",
+      "entityType": "tables"
+    },
+    {
+      "name": "story",
       "entityType": "tables"
     },
     {
@@ -218,6 +226,46 @@
       "generated": null,
       "name": "id",
       "entityType": "columns",
+      "table": "history"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "chat_id",
+      "entityType": "columns",
+      "table": "history"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "title",
+      "entityType": "columns",
+      "table": "history"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "history"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
       "table": "messages"
     },
     {
@@ -398,6 +446,86 @@
       "generated": null,
       "name": "id",
       "entityType": "columns",
+      "table": "story"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "chat_id",
+      "entityType": "columns",
+      "table": "story"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "type",
+      "entityType": "columns",
+      "table": "story"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "title",
+      "entityType": "columns",
+      "table": "story"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "describe",
+      "entityType": "columns",
+      "table": "story"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "worldview",
+      "entityType": "columns",
+      "table": "story"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "story"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "table": "story"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
       "table": "user"
     },
     {
@@ -531,9 +659,39 @@
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
       "nameExplicit": false,
+      "name": "fk_history_chat_id_chat_id_fk",
+      "entityType": "fks",
+      "table": "history"
+    },
+    {
+      "columns": [
+        "chat_id"
+      ],
+      "tableTo": "chat",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
       "name": "fk_messages_chat_id_chat_id_fk",
       "entityType": "fks",
       "table": "messages"
+    },
+    {
+      "columns": [
+        "chat_id"
+      ],
+      "tableTo": "chat",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_story_chat_id_chat_id_fk",
+      "entityType": "fks",
+      "table": "story"
     },
     {
       "columns": [
@@ -558,6 +716,15 @@
         "id"
       ],
       "nameExplicit": false,
+      "name": "history_pk",
+      "table": "history",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
       "name": "messages_pk",
       "table": "messages",
       "entityType": "pks"
@@ -569,6 +736,15 @@
       "nameExplicit": false,
       "name": "session_pk",
       "table": "session",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "story_pk",
+      "table": "story",
       "entityType": "pks"
     },
     {
