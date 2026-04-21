@@ -36,7 +36,7 @@ export default function RootLayout({
       lang="zh-CN"
       className={`${geistSans.variable} ${geistMono.variable} ${quicksand.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="flex h-screen w-screen flex-col">
         <TooltipProvider>{children}</TooltipProvider>
       </body>
     </html>
