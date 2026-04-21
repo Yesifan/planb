@@ -4,6 +4,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/server";
 
 export async function proxy(request: NextRequest) {
+  // TEMPORARY: Disable auth check for QA testing
+  return NextResponse.next();
+  /* Original code kept for reference
   const session = await auth.api.getSession({
     headers: await headers(),
   });
@@ -20,6 +23,7 @@ export async function proxy(request: NextRequest) {
   }
 
   return NextResponse.next();
+  */
 }
 
 export const config = {

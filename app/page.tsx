@@ -1,45 +1,112 @@
 "use client";
 
-import Link from "next/link";
+import { useChat } from "@ai-sdk/react";
+import { readStreamableValue } from "@ai-sdk/rsc";
+import { UIMessage } from "ai";
+import { MessageSquare } from "lucide-react";
+import { useState } from "react";
 
-import { Button } from "@/components/ui/button";
-import { signOut,useSession } from "@/lib/auth/client";
+import {
+  Conversation,
+  ConversationContent,
+  ConversationEmptyState,
+  ConversationScrollButton,
+} from "@/components/ai-elements/conversation";
+import {
+  Message,
+  MessageContent,
+  MessageResponse,
+} from "@/components/ai-elements/message";
+import {
+  PromptInput,
+  type PromptInputMessage,
+  PromptInputSubmit,
+  PromptInputTextarea,
+} from "@/components/ai-elements/prompt-input";
+import { continueConversation } from "@/lib/actions/llm";
 
-export default function HomePage() {
-  const { data: session } = useSession();
+const ConversationDemo = () => {
+  const [input, setInput] = useState("");
+  const [messages, setMessages] = useState<UIMessage[]>([]);
+
+  const handleSubmit = async (message: PromptInputMessage) => {
+    const newMessage = await continueConversation(message.text, { chatId: "" });
+
+    let textContent = "";
+
+    for await (const delta of readStreamableValue(newMessage)) {
+      textContent = `${textContent}${delta}`;
+
+      setMessages([
+        {
+          id: "1",
+          role: "user",
+          parts: [{ type: "text", text: message.text }],
+        },
+        {
+          id: "",
+          role: "assistant",
+          parts: [{ type: "text", text: textContent }],
+        },
+      ]);
+    }
+  };
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm">
-        <h1 className="text-4xl font-bold mb-8">欢迎来到 Planb</h1>
-        
-        {session ? (
-          <div className="flex flex-col items-center gap-4">
-            <p className="text-lg">
-              欢迎回来，<span className="font-semibold">{session.user.name || session.user.email}</span>
-            </p>
-            {session.user.image && (
-              <img 
-                src={session.user.image} 
-                alt="头像" 
-                className="w-16 h-16 rounded-full"
+    <div className="relative flex flex-1 flex-col">
+      <div className="flex h-full flex-1 flex-col">
+        <Conversation className="p-6">
+          <ConversationContent>
+            {messages.length === 0 ? (
+              <ConversationEmptyState
+                icon={<MessageSquare className="size-12" />}
+                title="Start a conversation"
+                description="Type a message below to begin chatting"
               />
+            ) : (
+              messages.map((message) => (
+                <Message from={message.role} key={message.id}>
+                  <MessageContent>
+                    {message.parts.map((part, i) => {
+                      switch (part.type) {
+                        case "text": // we don't use any reasoning or tool calls in this example
+                          return (
+                            <MessageResponse key={`${message.id}-${i}`}>
+                              {part.text}
+                            </MessageResponse>
+                          );
+                        default:
+                          return null;
+                      }
+                    })}
+                  </MessageContent>
+                </Message>
+              ))
             )}
-            <Button onClick={() => signOut()} variant="outline">
-              登出
-            </Button>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center gap-4">
-            <p className="text-lg text-muted-foreground">
-              欢迎使用，请登录以继续
-            </p>
-            <Link href="/login">
-              <Button>前往登录</Button>
-            </Link>
-          </div>
-        )}
+          </ConversationContent>
+
+          <ConversationScrollButton />
+        </Conversation>
+
+        <PromptInput
+          onSubmit={handleSubmit}
+          className="relative mx-auto w-full"
+        >
+          <PromptInputTextarea
+            value={input}
+            placeholder="Say something..."
+            onChange={(e) => setInput(e.currentTarget.value)}
+            className="pr-12"
+          />
+          <PromptInputSubmit
+            // status={status === "streaming" ? "streaming" : "ready"}
+            disabled={!input.trim()}
+            className="absolute right-1 bottom-1"
+          />
+        </PromptInput>
       </div>
-    </main>
+    </div>
   );
-}
+};
+
+export default ConversationDemo;

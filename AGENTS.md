@@ -48,6 +48,39 @@ bun test test/xxx.test.ts  # 运行指定测试文件
 
 ---
 
+### Agent 架构
+
+项目使用 **Markdown + Frontmatter** 方式配置 Agent，通过 `createAgent` 工厂函数创建可执行实例：
+
+- Agent 定义文件存放在 `planb/agents/` 目录，使用 `.md` 后缀
+- Frontmatter 配置 Agent 的基本信息，Markdown 内容是 Agent 的 system prompt
+
+#### 使用 Agent
+
+使用与 "AI SDK" 的 Agent 一致的 API。
+
+```typescript
+import { YourAgentInstance } from "@/lib/llm";
+
+// 非流式生成
+const result = await YourAgentInstance.generate({
+  prompt: "用户输入",
+  // 当使用了 toolcall 时：传递必要的的上下文给工具
+  experimental_context: { db, sessionId },
+});
+
+// 流式生成
+const result = await YourAgentInstance.stream({
+  prompt: "用户输入",
+});
+```
+
+#### Agent 矩阵
+
+项目预定义了多 Agent 协作叙事系统，参见 `@planb/README.md`：
+
+---
+
 ## WORKFLOW
 
 <IMPORTANT>always use TDD with devlope</IMPORTANT>
@@ -71,3 +104,5 @@ Explore the current structure before proposing changes. Follow existing patterns
 Where existing code has problems that affect the work (e.g., a file that's grown too large, unclear boundaries, tangled responsibilities), include targeted improvements as part of the design - the way a good developer improves code they're working in.
 
 Don't propose unrelated refactoring. Stay focused on what serves the current goal.
+
+---
