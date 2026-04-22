@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+/**
+ * Animation Library
+ * Used throughout the app for consistent motion design.
+ */
+
+@theme inline {
+  /* 脉冲发光效果 - 用于背景装饰元素，产生柔和的光晕呼吸感 */
+  --animate-pulse-glow: pulse-glow 3s ease-in-out infinite;
+  /* 淡入上移 - 元素进场动画，从下方渐入并提升到最终位置 */
+  --animate-fade-in-up: fade-in-up 0.8s ease-out forwards;
+  /* 闪烁效果 - 用于星星或高光点缀，产生缩放和透明度变化 */
+  --animate-sparkle: sparkle 2s ease-in-out infinite;
+
+  @keyframes pulse-glow {
+    0%,
+    100% {
+      opacity: 0.5;
+      filter: blur(32px);
+    }
+    50% {
+      opacity: 0.9;
+      filter: blur(48px);
+    }
+  }
+
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes sparkle {
+    0%,
+    100% {
+      opacity: 0.3;
+      transform: scale(0.8);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.2);
+    }
+  }
+}

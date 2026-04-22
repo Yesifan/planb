@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "./animation.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -46,6 +47,11 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+  /* Portal 专用尺寸 */
+  --spacing-50: 200px;
+  --spacing-100: 400px;
+  --spacing-125: 500px;
+  --spacing-150: 600px;
 }
 
 :root {
@@ -114,7 +120,6 @@
   --sidebar-primary-foreground: oklch(0.985 0.001 var(--brand-hue));
   --sidebar-accent: oklch(0.269 0.007 var(--brand-hue));
   --sidebar-accent-foreground: oklch(0.985 0.002 var(--brand-hue));
-  --border: oklch(1 0.005 var(--brand-hue) / 10%);
   --sidebar-ring: oklch(0.58 0.18 var(--brand-hue));
 }
 
