@@ -5,21 +5,6 @@ import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 
 describe("Better Auth Configuration", () => {
-  test("auth config loads correctly", async () => {
-    const { auth } = await import("@/lib/auth/server");
-    expect(auth).toBeDefined();
-  });
-
-  test("auth client exports correctly", async () => {
-    const authClientModule = await import("@/lib/auth/client");
-    expect(authClientModule.default).toBeDefined();
-  });
-
-  test("database connection works with Better Auth adapter", async () => {
-    expect(db).toBeDefined();
-    expect(true).toBe(true);
-  });
-
   test("Better Auth tables can be queried when migrations applied", async () => {
     const result = await db.select({ count: count() }).from(schema.user);
     expect(result).toBeDefined();

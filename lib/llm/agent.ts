@@ -1,4 +1,4 @@
-import type {
+import {
   GenerateTextOnStepFinishCallback,
   GenerateTextResult,
   Output,
@@ -10,6 +10,7 @@ import type {
   ToolSet,
 } from "ai";
 import { generateText, hasToolCall, stepCountIs, streamText } from "ai";
+import z, { core } from "zod";
 
 import { primaryModel, secondaryModel } from "./provider";
 import Tools from "./tool";
@@ -111,14 +112,16 @@ export class PlanbAgent<
   }: Omit<Parameters<typeof generateText<TOOLS, OUTPUT>>[0], "model">): Promise<
     GenerateTextResult<TOOLS, OUTPUT>
   > {
-    return generateText({
+    const generateOptions = {
       ...(await this.prepareCall(options)),
       abortSignal,
       timeout,
       onStepFinish: this.mergeOnStepFinishCallbacks(
         onStepFinish,
       ) as GenerateTextOnStepFinishCallback<TOOLS>,
-    });
+    };
+
+    return generateText(generateOptions);
   }
 
   /**
@@ -143,7 +146,7 @@ export class PlanbAgent<
   }
 }
 
-export function createAgent(
+export function createAgent<OUTPUT extends Output.Output>(
   agent: string,
   provider: PlanbProvider,
   {
@@ -153,6 +156,8 @@ export function createAgent(
     content: string;
     frontmatter: Agent;
   },
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+  options?: Omit<ToolLoopAgentSettings<unknown, {}, OUTPUT>, "model">,
 ) {
   const { model, tools, stopWhen, ...config } = frontmatter;
 
@@ -185,5 +190,6 @@ export function createAgent(
     tools: toolset,
     stopWhen: stopWhenFun,
     ...config,
+    ...options,
   });
 }

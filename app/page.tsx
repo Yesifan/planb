@@ -32,7 +32,7 @@ export default async function HomePage() {
           你的故事，正在等待被书写
         </h1>
 
-        <div className="animate-fade-in-up via-accent/60 mb-6 h-px w-24 bg-linear-to-r from-transparent to-transparent delay-100" />
+        <div className="animate-fade-in-up via-accent/60 mb-6 h-px w-full bg-linear-to-r from-transparent to-transparent delay-100" />
 
         <p className="animate-fade-in-up text-muted-foreground mb-10 text-lg leading-relaxed delay-200 md:text-xl">
           这是属于你的异世界。
@@ -47,7 +47,7 @@ export default async function HomePage() {
               className="group bg-accent/20 border-accent/30 h-12 rounded-full border px-8 text-base text-white backdrop-blur-md active:scale-95"
             >
               <Wand2 />
-              开始创作
+              Open The World
             </Button>
           </Link>
         </div>

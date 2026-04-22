@@ -58,8 +58,9 @@ CREATE TABLE `session` (
 CREATE TABLE `story` (
 	`id` text PRIMARY KEY,
 	`chat_id` text NOT NULL,
+	`source` text NOT NULL,
+	`singularity` text NOT NULL,
 	`type` text NOT NULL,
-	`title` text NOT NULL,
 	`describe` text NOT NULL,
 	`worldview` text NOT NULL,
 	`created_at` integer NOT NULL,

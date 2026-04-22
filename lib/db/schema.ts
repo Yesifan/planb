@@ -44,8 +44,9 @@ export const story = sqliteTable("story", {
   chatId: text("chat_id")
     .notNull()
     .references(() => chat.id, { onDelete: "cascade" }),
+  source: text("source").notNull(),
+  singularity: text("singularity").notNull(),
   type: text("type").notNull(),
-  title: text("title").notNull(),
   describe: text("describe").notNull(),
   worldview: text("worldview").notNull(),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),

@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "8b684e90-24b0-4d29-9062-f60de1eb0ac0",
+  "id": "01cb0138-4bd9-4d8f-a10e-765c55e37ccb",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -464,7 +464,7 @@
       "autoincrement": false,
       "default": null,
       "generated": null,
-      "name": "type",
+      "name": "source",
       "entityType": "columns",
       "table": "story"
     },
@@ -474,7 +474,17 @@
       "autoincrement": false,
       "default": null,
       "generated": null,
-      "name": "title",
+      "name": "singularity",
+      "entityType": "columns",
+      "table": "story"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "type",
       "entityType": "columns",
       "table": "story"
     },
