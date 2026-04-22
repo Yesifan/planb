@@ -1,5 +1,7 @@
-import { updateSessionTitle } from "@/planb/tools/ui";
+import { createStory } from "@/planb/tools/ui";
 
-const Tools = { updateSessionTitle };
-
+const Tools = { createStory } as const;
+export const ToolNames = {
+  createStory: "createStory",
+} as const;
 export default Tools;

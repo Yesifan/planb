@@ -1,33 +1,16 @@
 import { tool } from "ai";
-import { eq } from "drizzle-orm";
 import { z } from "zod";
 
-import { chat } from "@/lib/db/schema";
-import { ToolContext } from "@/lib/llm/type";
-
-export const updateSessionTitle = tool({
-  description: "update Session Title",
-  inputSchema: z.object({
-    title: z.string(),
-  }),
-  // location below is inferred to be a string:
-  execute: async ({ title }, context) => {
-    const { db, sessionId } = context.experimental_context as ToolContext;
-    try {
-      const result = await db
-        .update(chat)
-        .set({
-          title: title,
-        })
-        .where(eq(chat.id, sessionId))
-        .returning();
-      if (result.length > 0) {
-        return "Update Success!";
-      } else {
-        return `Update Fail: This record does not exist.`;
-      }
-    } catch (e) {
-      return `Update Fail: ${e}`;
-    }
-  },
+export const CreateStorySchema = z.object({
+  title: z.string().min(1),
+  type: z.string().min(1, "Story type cannot be empty"),
+  describe: z.string().min(1, "Story description cannot be empty"),
+  worldview: z.string().min(1, "Worldview cannot be empty"),
 });
+
+export const createStory = tool({
+  description:
+    "接收用户提供的「故事来源」和「特异点」，生成一个逻辑自洽、细节丰满的异世界世界观",
+  inputSchema: CreateStorySchema,
+});
+// 吕布击败刘备

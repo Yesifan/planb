@@ -1,11 +1,12 @@
 "use server";
+import { validateTypes } from "@ai-sdk/provider-utils";
 import { nanoid } from "nanoid";
 
 import { getSessionWithRedirect } from "@/lib/auth/server";
 import { db } from "@/lib/db";
 import { chat, story } from "@/lib/db/schema";
-import { ArchivistAgent, ArchivistOutputSchema } from "@/lib/llm";
-
+import { ArchivistAgent } from "@/lib/llm";
+import Tools, { ToolNames } from "@/lib/llm/tool";
 export async function createStory(source: string, singularity: string) {
   // 1. Input Validation
   if (!source || source.trim().length === 0) {
@@ -26,8 +27,18 @@ export async function createStory(source: string, singularity: string) {
       prompt,
       experimental_context: { db },
     });
-    const json = JSON.parse(result.output);
-    const output = await ArchivistOutputSchema.parseAsync(json);
+
+    const createStoryToolCall = result.toolCalls.find(
+      (toolcall) => toolcall.toolName === ToolNames.createStory,
+    );
+
+    if (!createStoryToolCall) {
+      throw new Error("The Agent not call create story tool!");
+    }
+    const output = await validateTypes({
+      value: createStoryToolCall.input,
+      schema: Tools.createStory.inputSchema,
+    });
 
     // 4. Database Operations - Create chat first, then story
     const chatId = nanoid();

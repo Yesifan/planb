@@ -2,7 +2,7 @@
 import { createStreamableValue } from "@ai-sdk/rsc";
 
 import { db } from "@/lib/db";
-import { ArchivistAgent, TitlerAgent } from "@/lib/llm";
+import { ArchivistAgent } from "@/lib/llm";
 
 interface AgentContext {
   chatId: string;
@@ -52,12 +52,4 @@ export async function continueConversation(
   })();
 
   return stream.value;
-}
-
-export async function createTitle(formData: FormData) {
-  const result = await TitlerAgent.generate({
-    prompt: "",
-    experimental_context: { db, sessionId: "" },
-  });
-  console.debug(result);
 }
