@@ -54,6 +54,7 @@ export const AgentSchema = z.object({
       maxStep: z.int().optional(),
     })
     .optional(),
+  toolChoice: z.string().optional(),
 });
 
 export type Agent = z.infer<typeof AgentSchema>;

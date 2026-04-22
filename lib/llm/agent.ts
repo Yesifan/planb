@@ -10,7 +10,6 @@ import {
   ToolSet,
 } from "ai";
 import { generateText, hasToolCall, stepCountIs, streamText } from "ai";
-import z, { core } from "zod";
 
 import { primaryModel, secondaryModel } from "./provider";
 import Tools from "./tool";
@@ -18,8 +17,7 @@ import { Agent, PlanbProvider } from "./type";
 
 export class PlanbAgent<
   CALL_OPTIONS = never,
-  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-  TOOLS extends ToolSet = {},
+  TOOLS extends ToolSet = typeof Tools,
   OUTPUT extends Output.Output = never,
 > {
   readonly version = "agent-v1";
@@ -159,7 +157,7 @@ export function createAgent<OUTPUT extends Output.Output>(
   // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   options?: Omit<ToolLoopAgentSettings<unknown, {}, OUTPUT>, "model">,
 ) {
-  const { model, tools, stopWhen, ...config } = frontmatter;
+  const { model, tools, toolChoice, stopWhen, ...config } = frontmatter;
 
   const toolset = tools?.reduce<ToolSet>((acc, toolName) => {
     if (toolName in Tools) {
@@ -169,6 +167,21 @@ export function createAgent<OUTPUT extends Output.Output>(
     }
     return acc;
   }, {});
+
+  const toolChoiceConfig =
+    toolChoice && toolset
+      ? ["required", "auto", "none"].includes(toolChoice)
+        ? (toolChoice as "required" | "auto" | "none")
+        : Object.keys(toolset).find((key) => key === toolChoice)
+          ? (toolChoice as never)
+          : undefined
+      : undefined;
+
+  console.debug(
+    toolset
+      ? `${agent} load ${Object.keys(toolset)} tools`
+      : `${agent} not load tools!`,
+  );
 
   const stopWhenFun = stopWhen
     ? [
@@ -187,7 +200,8 @@ export function createAgent<OUTPUT extends Output.Output>(
   return new PlanbAgent({
     model: provider(modelId ?? primaryModel),
     instructions: content,
-    tools: toolset,
+    tools: toolset as typeof Tools,
+    toolChoice: toolChoiceConfig,
     stopWhen: stopWhenFun,
     ...config,
     ...options,
