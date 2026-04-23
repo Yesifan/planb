@@ -83,6 +83,18 @@ const result = await YourAgentInstance.stream({
 
 ## Project-Specific Patterns
 
+### DB
+
+`drizzle` 优先使用 `query` 语法
+
+```ts
+const chat = await db.query.chat.findFirst({
+  where: {
+    id: chatId,
+  },
+});
+```
+
 ### Form Patterns
 
 项目使用 **React Hook Form + Zod + Field 组件** 模式：
