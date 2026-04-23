@@ -13,4 +13,3 @@ export const createStory = tool({
     "接收用户提供的「故事来源」和「特异点」，生成一个逻辑自洽、细节丰满的异世界世界观",
   inputSchema: CreateStorySchema,
 });
-// 吕布击败刘备

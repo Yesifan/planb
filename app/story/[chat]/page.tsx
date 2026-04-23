@@ -47,7 +47,7 @@ const formatRelativeTime = (date: Date | number | null | undefined): string => {
   const diffMin = Math.floor(diffMs / 60000);
   const diffHour = Math.floor(diffMs / 3600000);
   const diffDay = Math.floor(diffMs / 86400000);
-  
+
   if (diffMin < 1) return "刚刚";
   if (diffMin < 60) return `${diffMin}分钟前`;
   if (diffHour < 24) return `${diffHour}小时前`;
@@ -58,9 +58,8 @@ const formatRelativeTime = (date: Date | number | null | undefined): string => {
 const StoryPage = () => {
   const [input, setInput] = useState("");
   const params = useParams<{ chat: string }>();
-  const { messages, chat, story, isLoading, error, retry, sendMessage } = useStory(
-    params.chat
-  );
+  const { messages, chat, story, isLoading, error, retry, sendMessage } =
+    useStory(params.chat);
 
   if (isLoading) {
     return (
@@ -74,14 +73,14 @@ const StoryPage = () => {
   if (error) {
     return (
       <div className="flex h-screen flex-col items-center justify-center p-6">
-        <Card className="max-w-md w-full">
+        <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle>加载失败</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <p className="text-muted-foreground">{error}</p>
             <Button variant="outline" onClick={retry} className="w-full">
-              <RotateCw className="size-4 mr-2" />
+              <RotateCw className="mr-2 size-4" />
               重试
             </Button>
           </CardContent>
@@ -92,13 +91,13 @@ const StoryPage = () => {
 
   return (
     <div className="flex h-screen flex-col">
-      <header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header className="bg-background/95 supports-backdrop-filter:bg-background/60 sticky top-0 z-10 border-b backdrop-blur">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-4">
           <div className="flex flex-col">
             <h1 className="font-heading truncate text-lg font-semibold">
               {chat?.title || "未命名对话"}
             </h1>
-            <div className="flex gap-4 text-xs text-muted-foreground mt-1">
+            <div className="text-muted-foreground mt-1 flex gap-4 text-xs">
               {chat?.createdAt && (
                 <span className="inline-flex items-center gap-1">
                   <span>创建: {formatRelativeTime(chat.createdAt)}</span>
@@ -120,11 +119,9 @@ const StoryPage = () => {
             <Button
               variant="ghost"
               size="sm"
-              className="flex items-center gap-2 px-0 h-auto group"
+              className="group flex h-auto items-center gap-2 px-0"
             >
-              <span className="font-heading text-sm font-medium">
-                故事设定
-              </span>
+              <span className="font-heading text-sm font-medium">故事设定</span>
               <ChevronDown className="size-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
             </Button>
           </CollapsibleTrigger>
@@ -134,27 +131,27 @@ const StoryPage = () => {
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-4">
                     <div className="flex items-start gap-3">
-                      <BookOpen className="size-4 mt-0.5 text-accent" />
+                      <BookOpen className="text-accent mt-0.5 size-4" />
                       <div>
-                        <div className="text-xs font-medium text-muted-foreground">
+                        <div className="text-muted-foreground text-xs font-medium">
                           故事来源
                         </div>
                         <div className="text-sm">{story.source}</div>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
-                      <Sparkles className="size-4 mt-0.5 text-accent" />
+                      <Sparkles className="text-accent mt-0.5 size-4" />
                       <div>
-                        <div className="text-xs font-medium text-muted-foreground">
+                        <div className="text-muted-foreground text-xs font-medium">
                           特异点
                         </div>
                         <div className="text-sm">{story.singularity}</div>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
-                      <Tag className="size-4 mt-0.5 text-accent" />
+                      <Tag className="text-accent mt-0.5 size-4" />
                       <div>
-                        <div className="text-xs font-medium text-muted-foreground">
+                        <div className="text-muted-foreground text-xs font-medium">
                           类型
                         </div>
                         <div className="text-sm">{story.type}</div>
@@ -163,18 +160,18 @@ const StoryPage = () => {
                   </div>
                   <div className="space-y-4">
                     <div className="flex items-start gap-3">
-                      <Globe className="size-4 mt-0.5 text-accent" />
+                      <Globe className="text-accent mt-0.5 size-4" />
                       <div>
-                        <div className="text-xs font-medium text-muted-foreground">
+                        <div className="text-muted-foreground text-xs font-medium">
                           世界观
                         </div>
                         <div className="text-sm">{story.worldview}</div>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">
-                      <ScrollText className="size-4 mt-0.5 text-accent" />
+                      <ScrollText className="text-accent mt-0.5 size-4" />
                       <div>
-                        <div className="text-xs font-medium text-muted-foreground">
+                        <div className="text-muted-foreground text-xs font-medium">
                           描述
                         </div>
                         <div className="text-sm">{story.describe}</div>
@@ -184,7 +181,7 @@ const StoryPage = () => {
                 </div>
               </div>
             ) : (
-              <div className="bg-muted/10 rounded-xl p-4 text-center text-sm text-muted-foreground">
+              <div className="bg-muted/10 text-muted-foreground rounded-xl p-4 text-center text-sm">
                 暂无故事设定
               </div>
             )}

@@ -60,9 +60,9 @@ CREATE TABLE `story` (
 	`chat_id` text NOT NULL,
 	`source` text NOT NULL,
 	`singularity` text NOT NULL,
-	`type` text NOT NULL,
-	`describe` text NOT NULL,
-	`worldview` text NOT NULL,
+	`type` text,
+	`describe` text,
+	`worldview` text,
 	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL,
 	CONSTRAINT `fk_story_chat_id_chat_id_fk` FOREIGN KEY (`chat_id`) REFERENCES `chat`(`id`) ON DELETE CASCADE

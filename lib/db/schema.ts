@@ -46,9 +46,9 @@ export const story = sqliteTable("story", {
     .references(() => chat.id, { onDelete: "cascade" }),
   source: text("source").notNull(),
   singularity: text("singularity").notNull(),
-  type: text("type").notNull(),
-  describe: text("describe").notNull(),
-  worldview: text("worldview").notNull(),
+  type: text("type"),
+  describe: text("describe"),
+  worldview: text("worldview"),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp_ms" })
     .$onUpdate(() => new Date())

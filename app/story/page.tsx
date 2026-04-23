@@ -17,8 +17,7 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { createStory } from "@/lib/actions/story";
-import { useSession } from "@/lib/auth/client";
+import { createStory } from "@/lib/actions/llm";
 
 const formSchema = z.object({
   source: z.string().min(1, "故事来源不能为空"),
@@ -26,7 +25,6 @@ const formSchema = z.object({
 });
 
 export default function CreateStoryPage() {
-  useSession();
   const router = useRouter();
 
   const form = useForm({
@@ -39,7 +37,10 @@ export default function CreateStoryPage() {
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     try {
-      const chatId = await createStory(values.source, values.singularity);
+      const [chatId, questions] = await createStory(
+        values.source,
+        values.singularity,
+      );
       router.push(`/story/${chatId}`);
     } catch (error) {
       console.error("Failed to create story:", error);

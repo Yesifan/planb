@@ -5,23 +5,23 @@ import { chat, messages, story } from "@/lib/db/schema";
 
 describe("getChatWithStory", () => {
   it("should throw error for empty chatId", async () => {
-    const { getChatWithStory } = await import("@/lib/actions/story");
+    const { getChatWithStory } = await import("@/lib/actions/db");
     expect(getChatWithStory("")).rejects.toThrow("chatId cannot be empty");
   });
 
   it("should throw error for whitespace-only chatId", async () => {
-    const { getChatWithStory } = await import("@/lib/actions/story");
+    const { getChatWithStory } = await import("@/lib/actions/db");
     expect(getChatWithStory("   ")).rejects.toThrow("chatId cannot be empty");
   });
 
   it("should return null for non-existent chatId", async () => {
-    const { getChatWithStory } = await import("@/lib/actions/story");
+    const { getChatWithStory } = await import("@/lib/actions/db");
     const result = await getChatWithStory("non-existent-id");
     expect(result).toBeNull();
   });
 
   it("should return chat and story data for valid chatId", async () => {
-    const { getChatWithStory } = await import("@/lib/actions/story");
+    const { getChatWithStory } = await import("@/lib/actions/db");
     const now = new Date();
     await db.insert(chat).values({
       id: "gcs-test-1",
@@ -52,7 +52,7 @@ describe("getChatWithStory", () => {
   });
 
   it("should return null when chat exists but story does not", async () => {
-    const { getChatWithStory } = await import("@/lib/actions/story");
+    const { getChatWithStory } = await import("@/lib/actions/db");
     const now = new Date();
     await db.insert(chat).values({
       id: "gcs-chat-only",
@@ -69,17 +69,17 @@ describe("getChatWithStory", () => {
 
 describe("getChatMessages", () => {
   it("should throw error for empty chatId", async () => {
-    const { getChatMessages } = await import("@/lib/actions/story");
+    const { getChatMessages } = await import("@/lib/actions/db");
     expect(getChatMessages("")).rejects.toThrow("chatId cannot be empty");
   });
 
   it("should throw error for whitespace-only chatId", async () => {
-    const { getChatMessages } = await import("@/lib/actions/story");
+    const { getChatMessages } = await import("@/lib/actions/db");
     expect(getChatMessages("   ")).rejects.toThrow("chatId cannot be empty");
   });
 
   it("should return empty array for chat with no messages", async () => {
-    const { getChatMessages } = await import("@/lib/actions/story");
+    const { getChatMessages } = await import("@/lib/actions/db");
     const now = new Date();
     await db.insert(chat).values({
       id: "gcm-empty-chat",
@@ -94,7 +94,7 @@ describe("getChatMessages", () => {
   });
 
   it("should return messages ordered by createdAt", async () => {
-    const { getChatMessages } = await import("@/lib/actions/story");
+    const { getChatMessages } = await import("@/lib/actions/db");
     const now = new Date();
     await db.insert(chat).values({
       id: "gcm-msg-chat",

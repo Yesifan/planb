@@ -6,8 +6,8 @@ import { nanoid } from "nanoid";
 import { useCallback, useEffect, useState } from "react";
 
 import { PromptInputMessage } from "@/components/ai-elements/prompt-input";
+import { getChatMessages, getChatWithStory } from "@/lib/actions/db";
 import { continueConversation } from "@/lib/actions/llm";
-import { getChatMessages, getChatWithStory } from "@/lib/actions/story";
 import type { Chat, Message, Story } from "@/lib/db/schema";
 
 export interface UseStoryReturn {
@@ -96,7 +96,7 @@ export function useStory(chatId: string): UseStoryReturn {
 
     setMessages((prev) => [...prev, userMsg]);
 
-    const newMessage = await continueConversation(message.text, { chatId });
+    const newMessage = await continueConversation(chatId, message.text);
 
     let textContent = "";
     const assistantId = nanoid();
