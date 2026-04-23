@@ -69,3 +69,4 @@ export type Chat = typeof chat.$inferSelect;
 export type NewChat = typeof chat.$inferInsert;
 export type Message = typeof messages.$inferSelect;
 export type NewMessage = typeof messages.$inferInsert;
+export type Story = typeof story.$inferSelect;
