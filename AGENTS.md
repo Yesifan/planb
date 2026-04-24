@@ -12,6 +12,20 @@ This version has breaking changes — APIs, conventions, and file structure may 
 **核心特性**: 多 Agent 协作编排、Markdown 配置化、AI 流式生成
 **架构特点**: Fullstack Next.js, 简单 API 都使用 Nextjs Action
 
+## Key Directories
+
+| Directory               | Description                                              |
+| ----------------------- | -------------------------------------------------------- |
+| `app`                   | next app route                                           |
+| `app/story`             | main page                                                |
+| `component`             | ui component                                             |
+| `component/ui`          | shadcn ui component                                      |
+| `component/ai-elements` | aielement ui component(https://elements.ai-sdk.dev/docs) |
+| `lib`                   | auth/db/llm/next server ation                            |
+| `hooks`                 | react hooks                                              |
+| `planb`                 | 本项目的 AI 设置文件夹                                   |
+| `drizzle`               | 数据库迁移纪录目录                                       |
+
 ## 技术栈
 
 | 层级   | 技术                          | 说明                   |
@@ -120,16 +134,20 @@ const onSubmit = async (values) => {
 
 ### React Component
 
-- 项目的业务 Component 直接写在 Components 目录下
+- 项目的业务 Component 直接写在 Components 目录下，Button 等通用组件使用 shadcn cli 添加。
+- 优先使用无状态的简单组件。如果组件需要维护复杂状态，确保其严格局部化。
+- 如果需要暴露属性，深度思考哪些熟悉应该暴露，哪些状态应该内化
 - 合理的拆分 Component，单个 Component 应该保持在 300 行以内（不包括 import lines）
+- 除非明确要求，否则不要在生成的组件内进行数据获取（例如，⁠fetch()、用于 API 调用的 ⁠useEffect）
 
 ---
 
 ## WORKFLOW
 
-<IMPORTANT>always use TDD with devlope</IMPORTANT>
+<IMPORTANT>always use TDD with devlope new feature</IMPORTANT>
 <IMPORTANT>always check lint，type and test</IMPORTANT>
 <IMPORTANT>编写计划文档时请使用中文</IMPORTANT>
+<IMPORTANT>计划文档中不要直接编写代码，只需要描述做什么，怎么做，目标和约束是什么</IMPORTANT>
 
 ### Design for isolation and clarity:
 
@@ -148,5 +166,3 @@ Explore the current structure before proposing changes. Follow existing patterns
 Where existing code has problems that affect the work (e.g., a file that's grown too large, unclear boundaries, tangled responsibilities), include targeted improvements as part of the design - the way a good developer improves code they're working in.
 
 Don't propose unrelated refactoring. Stay focused on what serves the current goal.
-
----

@@ -144,18 +144,18 @@ export class PlanbAgent<
   }
 }
 
+type AgentSetting = {
+  content: string;
+  frontmatter: Agent;
+};
+
 export function createAgent<TOOLS extends ToolSet = typeof Tools>(
   agent: string,
   provider: PlanbProvider,
-  {
-    content,
-    frontmatter,
-  }: {
-    content: string;
-    frontmatter: Agent;
-  },
-
-  options?: Omit<ToolLoopAgentSettings<unknown, TOOLS, never>, "model">,
+  { content, frontmatter }: AgentSetting,
+  options: Partial<
+    Omit<ToolLoopAgentSettings<unknown, TOOLS, never>, "model">
+  > = {},
 ) {
   const { model, tools, toolChoice, stopWhen, ...config } = frontmatter;
 
@@ -183,11 +183,14 @@ export function createAgent<TOOLS extends ToolSet = typeof Tools>(
       : `${agent} not load tools!`,
   );
 
+  const hasToolCallFun = stopWhen?.hasToolCall
+    ? stopWhen.hasToolCall.map((toolName) => hasToolCall(toolName))
+    : [];
+
   const stopWhenFun = stopWhen
-    ? [
-        stopWhen.hasToolCall && hasToolCall(stopWhen.hasToolCall),
-        stepCountIs(stopWhen.maxStep ?? 20),
-      ].filter((func) => !!func)
+    ? [...hasToolCallFun, stepCountIs(stopWhen.maxStep ?? 20)].filter(
+        (func) => !!func,
+      )
     : stepCountIs(20);
 
   const modelId =

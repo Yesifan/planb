@@ -34,5 +34,5 @@ export const ToolNames = Object.keys(Tools).reduce(
   },
   {} as { [K in ToolKey]: K }, // 🌟 优化：保留严格的字面量类型
 );
-export type CreateQuestion = z.infer<typeof createQuestion>;
+export type CreateQuestion = z.infer<typeof createQuestionSchema>;
 export default Tools;

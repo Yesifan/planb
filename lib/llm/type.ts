@@ -50,7 +50,7 @@ export const AgentSchema = z.object({
   tools: z.array(z.string()).optional(),
   stopWhen: z
     .object({
-      hasToolCall: z.string().optional(),
+      hasToolCall: z.array(z.string()).optional(),
       maxStep: z.int().optional(),
     })
     .optional(),

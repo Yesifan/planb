@@ -16,15 +16,16 @@ import {
   MessageContent,
   MessageResponse,
 } from "@/components/ai-elements/message";
-import {
-  PromptInput,
-  PromptInputSubmit,
-  PromptInputTextarea,
-} from "@/components/ai-elements/prompt-input";
 import CreateStoryForm, {
   createStoryFormSchema,
 } from "@/components/create-story-form";
 import StoryHeader from "@/components/story-header";
+import {
+  StoryPrompt,
+  StoryPromptInput,
+  StoryPromptSubmit,
+} from "@/components/story-prompt";
+import StoryQuestion from "@/components/story-question";
 import StorySetting from "@/components/story-setting";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,6 +37,7 @@ export default function StoryPage() {
   const params = useParams<{ chat?: string[] }>();
   const chatId = params.chat?.[0];
   const [question, setQuestion] = useState<CreateQuestion | undefined>();
+
   const [input, setInput] = useState("");
   const {
     messages,
@@ -128,18 +130,26 @@ export default function StoryPage() {
           </ConversationContent>
           <ConversationScrollButton />
         </Conversation>
-        <PromptInput onSubmit={sendMessage} className="relative mx-auto w-full">
-          <PromptInputTextarea
-            value={input}
-            placeholder="说点什么..."
-            onChange={(e) => setInput(e.currentTarget.value)}
-            className="pr-12"
+        {question ? (
+          <StoryQuestion
+            question={question}
+            onSubmit={async (message) => {
+              await sendMessage(message);
+              setQuestion(undefined);
+            }}
+            className="my-4"
           />
-          <PromptInputSubmit
-            disabled={!input.trim()}
-            className="absolute right-1 bottom-1"
-          />
-        </PromptInput>
+        ) : (
+          <StoryPrompt
+            input={input}
+            onInputChange={setInput}
+            onSubmit={sendMessage}
+            className="relative mx-auto w-full"
+          >
+            <StoryPromptInput placeholder="说点什么..." />
+            <StoryPromptSubmit />
+          </StoryPrompt>
+        )}
       </div>
     </div>
   );
