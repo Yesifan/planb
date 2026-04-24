@@ -144,7 +144,7 @@ export class PlanbAgent<
   }
 }
 
-export function createAgent<OUTPUT extends Output.Output>(
+export function createAgent<TOOLS extends ToolSet = typeof Tools>(
   agent: string,
   provider: PlanbProvider,
   {
@@ -154,8 +154,8 @@ export function createAgent<OUTPUT extends Output.Output>(
     content: string;
     frontmatter: Agent;
   },
-  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-  options?: Omit<ToolLoopAgentSettings<unknown, {}, OUTPUT>, "model">,
+
+  options?: Omit<ToolLoopAgentSettings<unknown, TOOLS, never>, "model">,
 ) {
   const { model, tools, toolChoice, stopWhen, ...config } = frontmatter;
 
@@ -200,7 +200,7 @@ export function createAgent<OUTPUT extends Output.Output>(
   return new PlanbAgent({
     model: provider(modelId ?? primaryModel),
     instructions: content,
-    tools: toolset as typeof Tools,
+    tools: toolset as TOOLS,
     toolChoice: toolChoiceConfig,
     stopWhen: stopWhenFun,
     ...config,

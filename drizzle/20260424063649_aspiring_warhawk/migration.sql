@@ -33,13 +33,13 @@ CREATE TABLE `history` (
 CREATE TABLE `messages` (
 	`id` text PRIMARY KEY,
 	`chat_id` text NOT NULL,
-	`role` text NOT NULL,
-	`content` text NOT NULL,
-	`tool_calls` text,
-	`tool_call_id` text,
 	`agent` text,
 	`model` text,
-	`tokens` integer,
+	`role` text NOT NULL,
+	`content` text NOT NULL,
+	`reasoning` text,
+	`output_tokens` integer,
+	`input_tokens` integer,
 	`created_at` integer NOT NULL,
 	CONSTRAINT `fk_messages_chat_id_chat_id_fk` FOREIGN KEY (`chat_id`) REFERENCES `chat`(`id`) ON DELETE CASCADE
 );

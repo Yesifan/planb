@@ -5,6 +5,7 @@ import Archivist from "@/planb/agents/Archivist.md";
 
 import { createAgent } from "./agent";
 import { provider } from "./provider";
+import Tools from "./tool";
 
 // Schema for validating Archivist agent output
 export const ArchivistOutputSchema = z.object({
@@ -14,7 +15,11 @@ export const ArchivistOutputSchema = z.object({
   worldview: z.string().min(1, "Worldview cannot be empty"),
 });
 
-export const ArbiterAgent = createAgent("Arbiter", provider, Arbiter);
+export const ArbiterAgent = createAgent<Omit<typeof Tools, "createStory">>(
+  "Arbiter",
+  provider,
+  Arbiter,
+);
 export const ArchivistAgent = createAgent("Archivist", provider, Archivist);
 
 export { primaryModel, provider, secondaryModel } from "./provider";

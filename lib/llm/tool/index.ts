@@ -3,15 +3,18 @@ import z from "zod";
 
 import { createStory } from "./story";
 
-const createQuestionSchema = z.array(
-  z.object({
-    question: z.string().describe("向用户提出的具体问题，应该清晰明确"),
-    describe: z
-      .string()
-      .describe("问题的补充说明或提示，帮助用户理解需要提供什么信息")
-      .optional(),
-  }),
-);
+const createQuestionSchema = z.object({
+  title: z.string().describe("向用户介绍你要询问的前因后果"),
+  questions: z.array(
+    z.object({
+      question: z.string().describe("向用户提出的具体问题，应该清晰明确"),
+      describe: z
+        .string()
+        .describe("问题的补充说明或提示，帮助用户理解需要提供什么信息")
+        .optional(),
+    }),
+  ),
+});
 
 const createQuestion = tool({
   description:
@@ -31,4 +34,5 @@ export const ToolNames = Object.keys(Tools).reduce(
   },
   {} as { [K in ToolKey]: K }, // 🌟 优化：保留严格的字面量类型
 );
+export type CreateQuestion = z.infer<typeof createQuestion>;
 export default Tools;

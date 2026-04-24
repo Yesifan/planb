@@ -1,5 +1,5 @@
 "use server";
-import { validateTypes } from "@ai-sdk/provider-utils";
+
 import { createStreamableValue } from "@ai-sdk/rsc";
 import { nanoid } from "nanoid";
 
@@ -7,12 +7,7 @@ import { db } from "@/lib/db";
 import { ArchivistAgent } from "@/lib/llm";
 
 import { getSessionWithRedirect } from "../auth/server";
-import { chat, story } from "../db/schema";
-import Tools, { ToolNames } from "../llm/tool";
-
-interface AgentContext {
-  chatId: string;
-}
+import { chat, messages, story } from "../db/schema";
 
 export async function createStory(source: string, singularity: string) {
   const session = await getSessionWithRedirect();
@@ -41,25 +36,36 @@ export async function createStory(source: string, singularity: string) {
       updatedAt: now,
     });
 
-    const result = await ArchivistAgent.generate({
+    const { toolCalls, text } = await ArchivistAgent.generate({
       prompt,
       experimental_context: { db },
-    });
+      async onFinish({ text, reasoning, totalUsage, model }) {
+        const now = new Date();
+        const reasoningText = reasoning.reduce((acc, reason) => {
+          return acc + reason.text;
+        }, "");
 
-    const createQuestionToolCall = result.toolCalls.find(
-      (toolcall) => toolcall.toolName === ToolNames.createQuestion,
-    );
-
-    if (!createQuestionToolCall) {
-      throw new Error("The Agent not call create story tool!");
-    }
-    const output = validateTypes({
-      value: createQuestionToolCall.input,
-      schema: Tools.createQuestion.inputSchema,
+        await db.insert(messages).values({
+          id: nanoid(),
+          chatId: chatId,
+          role: "assistant",
+          content: text,
+          reasoning: reasoningText,
+          inputTokens: totalUsage?.inputTokens,
+          outputTokens: totalUsage?.outputTokens,
+          agent: "Archivist",
+          model: typeof model === "string" ? model : model?.modelId,
+          createdAt: now,
+        });
+      },
     });
 
     // 5. Return result
-    return [chatId, output];
+    return {
+      id: chatId,
+      toolCalls: toolCalls,
+      text: text,
+    };
   } catch (error) {
     console.log(error);
     console.error("Error in createStory:", error);
@@ -70,10 +76,7 @@ export async function createStory(source: string, singularity: string) {
   }
 }
 
-export async function createStoryContinue(chatid: string, prompt: string) {
-  const session = await getSessionWithRedirect();
-}
-
+// API 参考 https://ai-sdk.dev/cookbook/rsc/stream-text#stream-text
 export async function continueConversation(chatId: string, prompt: string) {
   // const history = await db.query.messages.findMany({
   //   where: {
@@ -105,6 +108,9 @@ export async function continueConversation(chatId: string, prompt: string) {
         },
       ],
       experimental_context: { db, chatId: chatId },
+      onError({ error }) {
+        console.error("stream", error);
+      },
     });
 
     for await (const text of textStream) {
@@ -116,3 +122,5 @@ export async function continueConversation(chatId: string, prompt: string) {
 
   return stream.value;
 }
+
+// RSC 多步骤 https://ai-sdk.dev/docs/ai-sdk-rsc/multistep-interfaces

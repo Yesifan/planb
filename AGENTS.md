@@ -81,7 +81,7 @@ const result = await YourAgentInstance.stream({
 
 ---
 
-## Project-Specific Patterns
+## Project Patterns
 
 ### DB
 
@@ -97,90 +97,7 @@ const chat = await db.query.chat.findFirst({
 
 ### Form Patterns
 
-项目使用 **React Hook Form + Zod + Field 组件** 模式：
-
-```tsx
-// React Hook Form + Zod + Controller 模式
-import { Controller, useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import {
-  Field,
-  FieldGroup,
-  FieldLabel,
-  FieldDescription,
-  FieldError,
-} from "@/components/ui/field";
-
-const formSchema = z.object({
-  source: z.string().min(1, "不能为空"),
-  singularity: z.string().min(1, "不能为空"),
-});
-
-const form = useForm({
-  resolver: zodResolver(formSchema),
-  defaultValues: { source: "", singularity: "" },
-});
-
-// 使用 Controller + Field 组件
-<Controller
-  control={form.control}
-  name="source"
-  render={({ field, fieldState }) => (
-    <Field data-invalid={fieldState.invalid}>
-      <FieldLabel htmlFor="source">标签</FieldLabel>
-      <Input id="source" {...field} aria-invalid={fieldState.invalid} />
-      <FieldDescription>描述文字</FieldDescription>
-      <FieldError errors={[fieldState.error?.message]} />
-    </Field>
-  )}
-/>;
-```
-
-**Field 组件** (`components/ui/field.tsx`)：
-
-- `FieldGroup` - 表单字段组容器
-- `Field` - 单字段容器，支持 `data-invalid` 验证状态
-- `FieldLabel` - 标签（无效时自动变红色）
-- `FieldDescription` - 辅助描述
-- `FieldError` - 错误信息
-
----
-
-### Server Action 模式
-
-遵循 5 步模式：
-
-```typescript
-// lib/actions/story.ts
-"use server";
-
-export async function createStory(source: string, singularity: string) {
-  // 1. 输入验证
-  if (!source?.trim()) throw new Error("Source cannot be empty");
-
-  // 2. Session 验证
-  const session = await getSessionWithRedirect();
-
-  try {
-    // 3. 调用 Agent（可带 output schema）
-    const result = await ArchivistAgent.generate({
-      prompt,
-      experimental_context: { db },
-    });
-
-    // 4. 数据库操作
-    await db.insert(chat).values({...});
-    await db.insert(story).values({...});
-
-    // 5. 返回结果
-    return { chatId, storyId };
-  } catch (error) {
-    console.error("Error:", error);
-    throw new Error("Operation failed");
-  }
-}
-```
+项目使用 **React Hook Form + Zod + Field 组件** 模式
 
 ---
 
@@ -200,6 +117,11 @@ const onSubmit = async (values) => {
   }
 };
 ```
+
+### React Component
+
+- 项目的业务 Component 直接写在 Components 目录下
+- 合理的拆分 Component，单个 Component 应该保持在 300 行以内（不包括 import lines）
 
 ---
 

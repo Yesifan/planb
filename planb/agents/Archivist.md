@@ -5,6 +5,8 @@ tools:
   - createStory
   - createQuestion
 toolChoice: auto
+stopWhen:
+  hasToolCall: createStory
 ---
 
 # Role

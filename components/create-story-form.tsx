@@ -17,36 +17,24 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { createStory } from "@/lib/actions/llm";
 
-const formSchema = z.object({
+export const createStoryFormSchema = z.object({
   source: z.string().min(1, "故事来源不能为空"),
   singularity: z.string().min(1, "特异点不能为空"),
 });
 
-export default function CreateStoryPage() {
-  const router = useRouter();
-
+export default function CreateStoryForm({
+  onSubmit,
+}: {
+  onSubmit: (values: z.infer<typeof createStoryFormSchema>) => void;
+}) {
   const form = useForm({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(createStoryFormSchema),
     defaultValues: {
       source: "",
       singularity: "",
     },
   });
-
-  const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    try {
-      const [chatId, questions] = await createStory(
-        values.source,
-        values.singularity,
-      );
-      router.push(`/story/${chatId}`);
-    } catch (error) {
-      console.error("Failed to create story:", error);
-      toast.error("创建故事失败，请重试");
-    }
-  };
 
   return (
     <div className="from-background via-background to-muted/30 min-h-screen bg-linear-to-b">
@@ -57,20 +45,13 @@ export default function CreateStoryPage() {
             <span>创作你的异世界</span>
           </div>
 
-          <h1
-            className="text-foreground mb-4 text-4xl font-semibold tracking-tight"
-            style={{
-              fontFamily: "var(--font-heading)",
-            }}
-          >
+          <h1 className="text-foreground font-heading mb-4 text-4xl font-semibold tracking-tight">
             故事从这里开始
           </h1>
 
           <p className="text-muted-foreground max-w-lg text-lg leading-relaxed">
             每一个
-            <span className="bg-linear-to-r from-blue-500 to-purple-600 bg-clip-text px-2 text-xl font-bold text-transparent">
-              如果
-            </span>
+            <span className="text-accent px-2 text-xl font-bold">如果</span>
             都是一个全新世界的起点。
             描述你想要探索的故事，以及那个改变一切的转折点。
           </p>

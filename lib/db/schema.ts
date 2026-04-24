@@ -27,15 +27,15 @@ export const messages = sqliteTable("messages", {
   chatId: text("chat_id")
     .notNull()
     .references(() => chat.id, { onDelete: "cascade" }),
+  agent: text("agent"),
+  model: text("model"),
   role: text("role", {
     enum: ["system", "user", "assistant", "tool"],
   }).notNull(),
   content: text("content").notNull(),
-  toolCalls: text("tool_calls"),
-  toolCallId: text("tool_call_id"),
-  agent: text("agent"),
-  model: text("model"),
-  tokens: integer("tokens"),
+  reasoning: text("reasoning"),
+  outputTokens: integer("output_tokens"),
+  inputTokens: integer("input_tokens"),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
 });
 

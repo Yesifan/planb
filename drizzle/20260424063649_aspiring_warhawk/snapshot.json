@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "12b7c827-1cc3-414c-b86c-849280a6aea3",
+  "id": "da7ddd99-9f1e-4d85-b445-a0f413c28857",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -280,6 +280,26 @@
     },
     {
       "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "agent",
+      "entityType": "columns",
+      "table": "messages"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "model",
+      "entityType": "columns",
+      "table": "messages"
+    },
+    {
+      "type": "text",
       "notNull": true,
       "autoincrement": false,
       "default": null,
@@ -304,37 +324,7 @@
       "autoincrement": false,
       "default": null,
       "generated": null,
-      "name": "tool_calls",
-      "entityType": "columns",
-      "table": "messages"
-    },
-    {
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "tool_call_id",
-      "entityType": "columns",
-      "table": "messages"
-    },
-    {
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "agent",
-      "entityType": "columns",
-      "table": "messages"
-    },
-    {
-      "type": "text",
-      "notNull": false,
-      "autoincrement": false,
-      "default": null,
-      "generated": null,
-      "name": "model",
+      "name": "reasoning",
       "entityType": "columns",
       "table": "messages"
     },
@@ -344,7 +334,17 @@
       "autoincrement": false,
       "default": null,
       "generated": null,
-      "name": "tokens",
+      "name": "output_tokens",
+      "entityType": "columns",
+      "table": "messages"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "input_tokens",
       "entityType": "columns",
       "table": "messages"
     },
