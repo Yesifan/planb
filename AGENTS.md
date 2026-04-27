@@ -25,6 +25,8 @@ This version has breaking changes — APIs, conventions, and file structure may 
 | `hooks`                 | react hooks                                              |
 | `planb`                 | 本项目的 AI 设置文件夹                                   |
 | `drizzle`               | 数据库迁移纪录目录                                       |
+| `.sisyphus`             | AI agent workspace (rules, plans, tasks, notepads)       |
+| `.local-ignore`         | Dev-only test fixtures + PR worktrees                    |
 
 ## 技术栈
 
@@ -40,12 +42,21 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ## 代码质量
 
+### General Principles
+
+- Keep things in one function unless composable or reusable
+- Avoid `try`/`catch` where possible
+- Avoid using the `any` type
+- Use Bun APIs when possible, like `Bun.file()`
+- Rely on type inference when possible; avoid explicit type annotations or interfaces unless necessary for exports or clarity
+- Prefer functional array methods (flatMap, filter, map) over for loops; use type guards on filter to maintain type inference downstream
+
+### typecheck
+
 <IMPORTANT>每次更新完代码运行下面的命令检查语法错误</IMPORTANT>，如果有则进行修正。
 
 ```bash
-# ESLint
 bun lint --fix
-# Typescript
 bunx tsc --noEmit
 ```
 
@@ -53,12 +64,10 @@ bunx tsc --noEmit
 
 项目使用 **bun:test** 作为单元测试框架，<IMPORTANT>每次更新完代码后运行单元测试。</IMPORTANT>
 
-#### 运行测试
-
-```bash
-bun test              # 运行所有测试
-bun test test/xxx.test.ts  # 运行指定测试文件
-```
+- Avoid mocks as much as possible
+- Test actual implementation, do not duplicate logic into tests
+- Tests cannot run from repo root (guard: `do-not-run-tests-from-root`); run from package dirs like `packages/opencode`.
+- Test pattern: Bun test (bun:test), co-located \*.test.ts, given/when/then style (nested describe with #given/#when/#then prefixes or inline // given / // when / // then comments)
 
 ---
 
@@ -76,14 +85,12 @@ bun test test/xxx.test.ts  # 运行指定测试文件
 ```typescript
 import { YourAgentInstance } from "@/lib/llm";
 
-// 非流式生成
 const result = await YourAgentInstance.generate({
   prompt: "用户输入",
   // 当使用了 toolcall 时：传递必要的的上下文给工具
   experimental_context: { db, sessionId },
 });
 
-// 流式生成
 const result = await YourAgentInstance.stream({
   prompt: "用户输入",
 });
@@ -96,6 +103,8 @@ const result = await YourAgentInstance.stream({
 ---
 
 ## Project Patterns
+
+- File naming: kebab-case for all files/directories
 
 ### DB
 
@@ -140,14 +149,81 @@ const onSubmit = async (values) => {
 - 合理的拆分 Component，单个 Component 应该保持在 300 行以内（不包括 import lines）
 - 除非明确要求，否则不要在生成的组件内进行数据获取（例如，⁠fetch()、用于 API 调用的 ⁠useEffect）
 
+### Code Patterns
+
+Reduce total variable count by inlining when a value is only used once.
+
+```ts
+// Good
+const journal = await Bun.file(path.join(dir, "journal.json")).json();
+
+// Bad
+const journalPath = path.join(dir, "journal.json");
+const journal = await Bun.file(journalPath).json();
+```
+
+### Variables
+
+Prefer `const` over `let`. Use ternaries or early returns instead of reassignment.
+
+```ts
+// Good
+const foo = condition ? 1 : 2;
+
+// Bad
+let foo;
+if (condition) foo = 1;
+else foo = 2;
+```
+
+### Control Flow
+
+Avoid `else` statements. Prefer early returns.
+
+```ts
+// Good
+function foo() {
+  if (condition) return 1;
+  return 2;
+}
+
+// Bad
+function foo() {
+  if (condition) return 1;
+  else return 2;
+}
+```
+
+### Schema Definitions (Drizzle)
+
+Use snake_case for field names so column names don't need to be redefined as strings.
+
+```ts
+// Good
+const table = sqliteTable("session", {
+  id: text().primaryKey(),
+  project_id: text().notNull(),
+  created_at: integer().notNull(),
+});
+
+// Bad
+const table = sqliteTable("session", {
+  id: text("id").primaryKey(),
+  projectID: text("project_id").notNull(),
+  createdAt: integer("created_at").notNull(),
+});
+```
+
 ---
 
 ## WORKFLOW
 
-<IMPORTANT>always use TDD with devlope new feature</IMPORTANT>
-<IMPORTANT>always check lint，type and test</IMPORTANT>
-<IMPORTANT>编写计划文档时请使用中文</IMPORTANT>
-<IMPORTANT>计划文档中不要直接编写代码，只需要描述做什么，怎么做，目标和约束是什么</IMPORTANT>
+- Never commit unless explicitly requested
+- always use TDD with devlope new feature
+- 编写计划文档时请使用中文
+- 计划文档中不要直接编写代码，只需要描述做什么，怎么做，目标和约束是什么
+- 执行文件前询问我是否新 checkout 出一个feature 分支，在 worktree 中开始新的工作
+- 如果使用 worktree 工作，一定要把这一点传递给每一个 subagent！
 
 ### Design for isolation and clarity:
 
