@@ -3,7 +3,6 @@
 import { readStreamableValue } from "@ai-sdk/rsc";
 import type { UIMessage } from "ai";
 import { nanoid } from "nanoid";
-import router from "next/router";
 import { useCallback, useEffect, useState } from "react";
 
 import { PromptInputMessage } from "@/components/ai-elements/prompt-input";
@@ -28,33 +27,30 @@ export interface UseStoryReturn {
 function toUIMessages(dbMessages: Message[]): UIMessage[] {
   return dbMessages
     .filter((m) => m.role !== "system" && m.role !== "tool")
-    .map((m, i) => ({
+    .map((m) => ({
       id: m.id,
       role: m.role as "user" | "assistant",
-      parts: [{ type: "text" as const, text: m.content }],
+      parts: [{ type: "text" as const, text: m.text }],
     }));
 }
 
 export function useStory(chatId?: string): UseStoryReturn {
   const [messages, setMessages] = useState<UIMessage[]>([]);
+
   const [chat, setChat] = useState<Chat | undefined>(undefined);
   const [story, setStory] = useState<Story | undefined>(undefined);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
 
   const createStory: typeof createStoryAction = async (source, singularity) => {
     const result = await createStoryAction(source, singularity);
-    router.replace(`/story/${result.id}`);
+    // router.push(`/story/${result.id}`, { scroll: false });
+    window.history.pushState(null, "", `/story/${result.id}`);
     return result;
   };
 
   const loadData = useCallback(async () => {
-    if (!chatId) {
-      setIsLoading(false);
-      return;
-    }
-
-    let isMounted = true;
+    if (!chatId) return;
 
     try {
       setIsLoading(true);
@@ -64,8 +60,6 @@ export function useStory(chatId?: string): UseStoryReturn {
         getChatWithStory(chatId),
         getChatMessages(chatId),
       ]);
-
-      if (!isMounted) return;
 
       if (chatWithStory) {
         setChat(chatWithStory.chat);
@@ -79,24 +73,16 @@ export function useStory(chatId?: string): UseStoryReturn {
         setMessages(toUIMessages(dbMessages));
       }
     } catch (err) {
-      if (isMounted) {
-        setError(err instanceof Error ? err.message : "Failed to load chat");
-      }
+      console.error(err);
+      setError(err instanceof Error ? err.message : "Failed to load chat");
     } finally {
-      if (isMounted) setIsLoading(false);
+      setIsLoading(false);
     }
-
-    return () => {
-      isMounted = false;
-    };
   }, [chatId]);
 
   useEffect(() => {
-    const cleanup = loadData();
-    return () => {
-      cleanup.then((fn) => fn?.());
-    };
-  }, [loadData]);
+    loadData();
+  }, []);
 
   const sendMessage = async (message: PromptInputMessage) => {
     if (chatId) {

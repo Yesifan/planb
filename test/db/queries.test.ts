@@ -78,21 +78,21 @@ describe("Database CRUD Operations", () => {
         updatedAt: new Date(),
       });
 
-      await testdb.insert(schema.messages).values({
+      await testdb.insert(schema.message).values({
         id: "msg-1",
         chatId: "chat-m1",
         role: "user",
-        content: "Hello World",
+        text: "Hello World",
         createdAt: new Date(),
       });
 
       const result = await testdb
         .select()
-        .from(schema.messages)
-        .where(eq(schema.messages.chatId, "chat-m1"));
+        .from(schema.message)
+        .where(eq(schema.message.chatId, "chat-m1"));
 
       expect(result).toHaveLength(1);
-      expect(result[0].content).toBe("Hello World");
+      expect(result[0].text).toBe("Hello World");
       expect(result[0].role).toBe("user");
     });
 
@@ -105,26 +105,26 @@ describe("Database CRUD Operations", () => {
         updatedAt: new Date(),
       });
 
-      await testdb.insert(schema.messages).values({
+      await testdb.insert(schema.message).values({
         id: "msg-2",
         chatId: "chat-m2",
         role: "assistant",
-        content: "Old content",
+        text: "Old content",
         createdAt: new Date(),
       });
 
       await testdb
-        .update(schema.messages)
-        .set({ content: "New content" })
-        .where(eq(schema.messages.id, "msg-2"));
+        .update(schema.message)
+        .set({ text: "New content" })
+        .where(eq(schema.message.id, "msg-2"));
 
       const result = await testdb
         .select()
-        .from(schema.messages)
-        .where(eq(schema.messages.id, "msg-2"));
+        .from(schema.message)
+        .where(eq(schema.message.id, "msg-2"));
 
       expect(result).toHaveLength(1);
-      expect(result[0].content).toBe("New content");
+      expect(result[0].text).toBe("New content");
     });
 
     test("delete message directly", async () => {
@@ -136,22 +136,20 @@ describe("Database CRUD Operations", () => {
         updatedAt: new Date(),
       });
 
-      await testdb.insert(schema.messages).values({
+      await testdb.insert(schema.message).values({
         id: "msg-3",
         chatId: "chat-m3",
         role: "user",
-        content: "To be deleted",
+        text: "To be deleted",
         createdAt: new Date(),
       });
 
-      await testdb
-        .delete(schema.messages)
-        .where(eq(schema.messages.id, "msg-3"));
+      await testdb.delete(schema.message).where(eq(schema.message.id, "msg-3"));
 
       const messagesResult = await testdb
         .select()
-        .from(schema.messages)
-        .where(eq(schema.messages.id, "msg-3"));
+        .from(schema.message)
+        .where(eq(schema.message.id, "msg-3"));
 
       expect(messagesResult).toHaveLength(0);
     });

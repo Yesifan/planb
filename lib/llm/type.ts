@@ -75,7 +75,7 @@ export interface PlanbProvider<
 
 export interface ToolContext {
   db: DB;
-  sessionId: string;
+  chatId: string;
   traceId?: string;
 }
 

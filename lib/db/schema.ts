@@ -4,6 +4,8 @@
  */
 
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+
+import Tools from "../llm/tool";
 export * from "./auth-schema";
 
 /**
@@ -22,28 +24,35 @@ export const chat = sqliteTable("chat", {
 /**
  * Messages table - stores chat messages
  */
-export const messages = sqliteTable("messages", {
+export const message = sqliteTable("message", {
   id: text("id").primaryKey(),
-  chatId: text("chat_id")
-    .notNull()
-    .references(() => chat.id, { onDelete: "cascade" }),
+  chatId: text("chat_id").notNull(),
   agent: text("agent"),
   model: text("model"),
   role: text("role", {
     enum: ["system", "user", "assistant", "tool"],
   }).notNull(),
-  content: text("content").notNull(),
+  text: text("text").notNull(),
   reasoning: text("reasoning"),
   outputTokens: integer("output_tokens"),
   inputTokens: integer("input_tokens"),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
 });
 
+export const toolCall = sqliteTable("toolcall", {
+  id: text("id").primaryKey(),
+  messageId: text("message_id").notNull(),
+  name: text("tool_calls", {
+    enum: Object.keys(Tools) as [keyof typeof Tools],
+  }),
+  input: text("input", { mode: "json" }).notNull(),
+  result: text("result"),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+});
+
 export const story = sqliteTable("story", {
   id: text("id").primaryKey(),
-  chatId: text("chat_id")
-    .notNull()
-    .references(() => chat.id, { onDelete: "cascade" }),
+  chatId: text("chat_id").notNull(),
   source: text("source").notNull(),
   singularity: text("singularity").notNull(),
   type: text("type"),
@@ -57,9 +66,7 @@ export const story = sqliteTable("story", {
 
 export const history = sqliteTable("history", {
   id: text("id").primaryKey(),
-  chatId: text("chat_id")
-    .notNull()
-    .references(() => chat.id, { onDelete: "cascade" }),
+  chatId: text("chat_id").notNull(),
   content: text("title").notNull(),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
 });
@@ -67,6 +74,6 @@ export const history = sqliteTable("history", {
 // Export types
 export type Chat = typeof chat.$inferSelect;
 export type NewChat = typeof chat.$inferInsert;
-export type Message = typeof messages.$inferSelect;
-export type NewMessage = typeof messages.$inferInsert;
+export type Message = typeof message.$inferSelect;
+export type NewMessage = typeof message.$inferInsert;
 export type Story = typeof story.$inferSelect;

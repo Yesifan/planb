@@ -4,13 +4,16 @@ import z from "zod";
 import { createStory } from "./story";
 
 const createQuestionSchema = z.object({
-  title: z.string().describe("向用户介绍你要询问的前因后果"),
+  title: z.string().describe("给你的提问起一个标题"),
+  describe: z.string().describe("详细说明询问的原因和前因后果").optional(),
   questions: z.array(
     z.object({
-      question: z.string().describe("向用户提出的具体问题，应该清晰明确"),
+      question: z.string().describe("简短的描述问题"),
       describe: z
         .string()
-        .describe("问题的补充说明或提示，帮助用户理解需要提供什么信息")
+        .describe(
+          "问题的补充说明，提示已经前应后果，帮助用户理解需要提供什么信息",
+        )
         .optional(),
     }),
   ),

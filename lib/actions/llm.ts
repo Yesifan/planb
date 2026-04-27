@@ -8,7 +8,8 @@ import { ArchivistAgent } from "@/lib/llm";
 import logger from "@/lib/logger";
 
 import { getSessionWithRedirect } from "../auth/server";
-import { chat, messages, story } from "../db/schema";
+import { chat, story } from "../db/schema";
+import { saveMessageWithTool } from "../llm/db";
 
 export async function createStory(source: string, singularity: string) {
   const traceId = nanoid();
@@ -44,40 +45,31 @@ export async function createStory(source: string, singularity: string) {
 
     const { toolCalls, text } = await ArchivistAgent.generate({
       prompt,
-      experimental_context: { db, traceId },
-      async onFinish({ text, reasoning, totalUsage, model }) {
-        const now = new Date();
-        const reasoningText = reasoning.reduce((acc, reason) => {
-          return acc + reason.text;
-        }, "");
-
-        await db.insert(messages).values({
-          id: nanoid(),
-          chatId: chatId,
-          role: "assistant",
-          content: text,
-          reasoning: reasoningText,
-          inputTokens: totalUsage?.inputTokens,
-          outputTokens: totalUsage?.outputTokens,
-          agent: "Archivist",
-          model: typeof model === "string" ? model : model?.modelId,
-          createdAt: now,
-        });
+      experimental_context: { db, chatId, traceId },
+      onFinish(event) {
+        saveMessageWithTool(event, { db, chatId, traceId });
       },
     });
+    const toolCall = toolCalls.length ? toolCalls[0] : undefined;
 
-    log.info(
-      { chatId, toolCallsCount: toolCalls.length },
-      "action.createStory.end",
-    );
+    log.info({ chatId, toolCalls }, "action.createStory.end");
 
-    // 5. Return result
-    return {
-      id: chatId,
-      toolCalls: toolCalls,
-      text: text,
-    };
-  }    catch (error) {
+    if (toolCall) {
+      if (toolCall.dynamic !== true && toolCall.toolName === "createQuestion") {
+        return {
+          id: chatId,
+          toolCall: toolCall,
+        };
+      }
+      log.error({ chatId, toolCalls }, "action.createStory.toolCallsError");
+      throw new Error("意料外的 Toolcall");
+    } else {
+      return {
+        id: chatId,
+        text: text,
+      };
+    }
+  } catch (error) {
     log.error({ error }, "action.createStory.error");
     if (error instanceof Error) {
       throw error;

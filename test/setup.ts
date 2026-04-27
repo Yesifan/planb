@@ -1,22 +1,22 @@
 // test-setup.ts
 import "@/envConfig";
 
-import * as matchers from '@testing-library/jest-dom/matchers';
+import * as matchers from "@testing-library/jest-dom/matchers";
 import { plugin } from "bun";
 import { beforeAll, beforeEach } from "bun:test";
 import { expect } from "bun:test";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
-import { JSDOM } from 'jsdom';
+import { JSDOM } from "jsdom";
 
 import { db as testdb } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { matterBunLoader } from "@/loader/matter";
 
 // Setup JSDOM for React component testing
-const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>');
+const dom = new JSDOM("<!DOCTYPE html><html><body></body></html>");
 
 // Add missing browser APIs
-Object.defineProperty(dom.window, 'localStorage', {
+Object.defineProperty(dom.window, "localStorage", {
   value: {
     getItem: () => null,
     setItem: () => {},
@@ -26,7 +26,7 @@ Object.defineProperty(dom.window, 'localStorage', {
   writable: true,
 });
 
-Object.defineProperty(dom.window, 'sessionStorage', {
+Object.defineProperty(dom.window, "sessionStorage", {
   value: {
     getItem: () => null,
     setItem: () => {},
@@ -39,7 +39,7 @@ Object.defineProperty(dom.window, 'sessionStorage', {
 // Add matchMedia polyfill
 dom.window.matchMedia = () => ({
   matches: false,
-  media: '',
+  media: "",
   onchange: null,
   addListener: () => {},
   removeListener: () => {},
@@ -76,7 +76,7 @@ beforeAll(() => {
 beforeEach(async () => {
   // Clear tables if they exist - for tests that run before migrations are applied
 
-  await testdb.delete(schema.messages);
+  await testdb.delete(schema.message);
   await testdb.delete(schema.chat);
   await testdb.delete(schema.session);
   await testdb.delete(schema.account);

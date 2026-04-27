@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import { db } from "@/lib/db";
-import { chat, messages, story } from "@/lib/db/schema";
+import { chat, message, story } from "@/lib/db/schema";
 
 describe("getChatWithStory", () => {
   it("should throw error for empty chatId", async () => {
@@ -103,24 +103,24 @@ describe("getChatMessages", () => {
       createdAt: now,
       updatedAt: now,
     });
-    await db.insert(messages).values({
+    await db.insert(message).values({
       id: "gcm-msg-1",
       chatId: "gcm-msg-chat",
       role: "user",
-      content: "Hello",
+      text: "Hello",
       createdAt: new Date(now.getTime() - 2000),
     });
-    await db.insert(messages).values({
+    await db.insert(message).values({
       id: "gcm-msg-2",
       chatId: "gcm-msg-chat",
       role: "assistant",
-      content: "Hi there",
+      text: "Hi there",
       createdAt: new Date(now.getTime() - 1000),
     });
 
     const result = await getChatMessages("gcm-msg-chat");
     expect(result).toHaveLength(2);
-    expect(result[0].content).toBe("Hello");
-    expect(result[1].content).toBe("Hi there");
+    expect(result[0].text).toBe("Hello");
+    expect(result[1].text).toBe("Hi there");
   });
 });

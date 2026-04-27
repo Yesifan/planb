@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "da7ddd99-9f1e-4d85-b445-a0f413c28857",
+  "id": "14ae36ed-dd27-45ac-ab1b-e114b872b20f",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -19,7 +19,7 @@
       "entityType": "tables"
     },
     {
-      "name": "messages",
+      "name": "message",
       "entityType": "tables"
     },
     {
@@ -28,6 +28,10 @@
     },
     {
       "name": "story",
+      "entityType": "tables"
+    },
+    {
+      "name": "toolcall",
       "entityType": "tables"
     },
     {
@@ -266,7 +270,7 @@
       "generated": null,
       "name": "id",
       "entityType": "columns",
-      "table": "messages"
+      "table": "message"
     },
     {
       "type": "text",
@@ -276,7 +280,7 @@
       "generated": null,
       "name": "chat_id",
       "entityType": "columns",
-      "table": "messages"
+      "table": "message"
     },
     {
       "type": "text",
@@ -286,7 +290,7 @@
       "generated": null,
       "name": "agent",
       "entityType": "columns",
-      "table": "messages"
+      "table": "message"
     },
     {
       "type": "text",
@@ -296,7 +300,7 @@
       "generated": null,
       "name": "model",
       "entityType": "columns",
-      "table": "messages"
+      "table": "message"
     },
     {
       "type": "text",
@@ -306,7 +310,7 @@
       "generated": null,
       "name": "role",
       "entityType": "columns",
-      "table": "messages"
+      "table": "message"
     },
     {
       "type": "text",
@@ -314,9 +318,9 @@
       "autoincrement": false,
       "default": null,
       "generated": null,
-      "name": "content",
+      "name": "text",
       "entityType": "columns",
-      "table": "messages"
+      "table": "message"
     },
     {
       "type": "text",
@@ -326,7 +330,7 @@
       "generated": null,
       "name": "reasoning",
       "entityType": "columns",
-      "table": "messages"
+      "table": "message"
     },
     {
       "type": "integer",
@@ -336,7 +340,7 @@
       "generated": null,
       "name": "output_tokens",
       "entityType": "columns",
-      "table": "messages"
+      "table": "message"
     },
     {
       "type": "integer",
@@ -346,7 +350,7 @@
       "generated": null,
       "name": "input_tokens",
       "entityType": "columns",
-      "table": "messages"
+      "table": "message"
     },
     {
       "type": "integer",
@@ -356,7 +360,7 @@
       "generated": null,
       "name": "created_at",
       "entityType": "columns",
-      "table": "messages"
+      "table": "message"
     },
     {
       "type": "text",
@@ -536,6 +540,66 @@
       "generated": null,
       "name": "id",
       "entityType": "columns",
+      "table": "toolcall"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "message_id",
+      "entityType": "columns",
+      "table": "toolcall"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "tool_calls",
+      "entityType": "columns",
+      "table": "toolcall"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "input",
+      "entityType": "columns",
+      "table": "toolcall"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "result",
+      "entityType": "columns",
+      "table": "toolcall"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "toolcall"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
       "table": "user"
     },
     {
@@ -660,51 +724,6 @@
     },
     {
       "columns": [
-        "chat_id"
-      ],
-      "tableTo": "chat",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "nameExplicit": false,
-      "name": "fk_history_chat_id_chat_id_fk",
-      "entityType": "fks",
-      "table": "history"
-    },
-    {
-      "columns": [
-        "chat_id"
-      ],
-      "tableTo": "chat",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "nameExplicit": false,
-      "name": "fk_messages_chat_id_chat_id_fk",
-      "entityType": "fks",
-      "table": "messages"
-    },
-    {
-      "columns": [
-        "chat_id"
-      ],
-      "tableTo": "chat",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "nameExplicit": false,
-      "name": "fk_story_chat_id_chat_id_fk",
-      "entityType": "fks",
-      "table": "story"
-    },
-    {
-      "columns": [
         "id"
       ],
       "nameExplicit": false,
@@ -735,8 +754,8 @@
         "id"
       ],
       "nameExplicit": false,
-      "name": "messages_pk",
-      "table": "messages",
+      "name": "message_pk",
+      "table": "message",
       "entityType": "pks"
     },
     {
@@ -755,6 +774,15 @@
       "nameExplicit": false,
       "name": "story_pk",
       "table": "story",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "toolcall_pk",
+      "table": "toolcall",
       "entityType": "pks"
     },
     {

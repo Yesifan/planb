@@ -1,14 +1,10 @@
 "use server";
-import { validateTypes } from "@ai-sdk/provider-utils";
-import { nanoid } from "nanoid";
+
 import { notFound, unauthorized } from "next/navigation";
 
 import { getSessionWithRedirect } from "@/lib/auth/server";
 import { db } from "@/lib/db";
 import type { Chat, Message, Story } from "@/lib/db/schema";
-import { chat, story } from "@/lib/db/schema";
-import { ArchivistAgent } from "@/lib/llm";
-import Tools, { ToolNames } from "@/lib/llm/tool";
 import logger from "@/lib/logger";
 
 export interface ChatWithStory {
@@ -49,7 +45,10 @@ export async function getChatWithStory(
 
     return { chat: chat, story: story };
   } catch (error) {
-    logger.error({ action: "getChatWithStory", chatId, error }, "db.query.error");
+    logger.error(
+      { action: "getChatWithStory", chatId, error },
+      "db.query.error",
+    );
     throw new Error("Failed to load chat data");
   }
 }
@@ -67,13 +66,13 @@ export async function getChatMessages(chatId: string): Promise<Message[]> {
     if (!chat) {
       return notFound();
     }
-    return await db.query.messages.findMany({
+    return await db.query.message.findMany({
       where: {
         chatId: chatId,
       },
     });
   } catch (error) {
-    logger.error({ action: "getChatMessages", chatId, error }, "db.query.error");
-    throw new Error("Failed to load messages");
+    logger.error({ chatId, error }, "getChatMessages.error");
+    throw error;
   }
 }

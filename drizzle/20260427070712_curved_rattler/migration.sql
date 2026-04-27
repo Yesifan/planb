@@ -26,22 +26,20 @@ CREATE TABLE `history` (
 	`id` text PRIMARY KEY,
 	`chat_id` text NOT NULL,
 	`title` text NOT NULL,
-	`created_at` integer NOT NULL,
-	CONSTRAINT `fk_history_chat_id_chat_id_fk` FOREIGN KEY (`chat_id`) REFERENCES `chat`(`id`) ON DELETE CASCADE
+	`created_at` integer NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE `messages` (
+CREATE TABLE `message` (
 	`id` text PRIMARY KEY,
 	`chat_id` text NOT NULL,
 	`agent` text,
 	`model` text,
 	`role` text NOT NULL,
-	`content` text NOT NULL,
+	`text` text NOT NULL,
 	`reasoning` text,
 	`output_tokens` integer,
 	`input_tokens` integer,
-	`created_at` integer NOT NULL,
-	CONSTRAINT `fk_messages_chat_id_chat_id_fk` FOREIGN KEY (`chat_id`) REFERENCES `chat`(`id`) ON DELETE CASCADE
+	`created_at` integer NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE `session` (
@@ -64,8 +62,16 @@ CREATE TABLE `story` (
 	`describe` text,
 	`worldview` text,
 	`created_at` integer NOT NULL,
-	`updated_at` integer NOT NULL,
-	CONSTRAINT `fk_story_chat_id_chat_id_fk` FOREIGN KEY (`chat_id`) REFERENCES `chat`(`id`) ON DELETE CASCADE
+	`updated_at` integer NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE `toolcall` (
+	`id` text PRIMARY KEY,
+	`message_id` text NOT NULL,
+	`tool_calls` text,
+	`input` text NOT NULL,
+	`result` text,
+	`created_at` integer NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE `user` (

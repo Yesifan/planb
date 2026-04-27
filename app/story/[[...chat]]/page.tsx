@@ -35,9 +35,9 @@ import type { CreateQuestion } from "@/lib/llm/tool";
 
 export default function StoryPage() {
   const params = useParams<{ chat?: string[] }>();
-  const chatId = params.chat?.[0];
+  const _chatId = params.chat?.[0];
+  const [chatId, setChatId] = useState<string | undefined>(_chatId);
   const [question, setQuestion] = useState<CreateQuestion | undefined>();
-
   const [input, setInput] = useState("");
   const {
     messages,
@@ -51,12 +51,14 @@ export default function StoryPage() {
   } = useStory(chatId);
 
   const onCreate = async (values: z.infer<typeof createStoryFormSchema>) => {
-    const { toolCalls } = await createStory(values.source, values.singularity);
-    const questionToolCall = toolCalls
-      .filter((tool) => !tool.dynamic)
-      .find((tool) => tool.toolName === "createQuestion");
-    if (questionToolCall) {
-      setQuestion(questionToolCall.input);
+    const { id, toolCall } = await createStory(
+      values.source,
+      values.singularity,
+    );
+    setChatId(id);
+    console.debug("toolCall", toolCall);
+    if (toolCall) {
+      setQuestion(toolCall.input);
     }
   };
 

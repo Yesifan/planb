@@ -1,4 +1,5 @@
 import {
+  GenerateTextOnFinishCallback,
   GenerateTextOnStepFinishCallback,
   GenerateTextResult,
   Output,
@@ -6,11 +7,14 @@ import {
   StepResult,
   StreamTextOnStepFinishCallback,
   StreamTextResult,
+  ToolLoopAgentOnFinishCallback,
   ToolLoopAgentSettings,
   ToolSet,
 } from "ai";
 import { generateText, hasToolCall, stepCountIs, streamText } from "ai";
+import { nanoid } from "nanoid";
 
+import { message, toolCall as toolCallDB } from "../db/schema";
 import logger, { truncateContent } from "../logger";
 import { primaryModel, secondaryModel } from "./provider";
 import Tools from "./tool";
@@ -126,17 +130,19 @@ export class PlanbAgent<
     const startTime = Date.now();
 
     try {
-      const promptSummary = typeof options.prompt === "string"
-        ? truncateContent(options.prompt)
-        : Array.isArray(options.prompt)
-          ? `[${options.prompt.length} messages]`
-          : "";
+      const promptSummary =
+        typeof options.prompt === "string"
+          ? truncateContent(options.prompt)
+          : Array.isArray(options.prompt)
+            ? `[${options.prompt.length} messages]`
+            : "";
       log.info({ prompt: promptSummary }, "agent.generate.start");
 
-      const loggingOnStepFinish: GenerateTextOnStepFinishCallback<TOOLS> =
-        async ({ stepNumber, toolCalls, usage }) => {
-          log.debug({ stepNumber, toolCalls, usage }, "agent.generate.step");
-        };
+      const loggingOnStepFinish: GenerateTextOnStepFinishCallback<
+        TOOLS
+      > = async ({ stepNumber, toolCalls, usage }) => {
+        log.debug({ stepNumber, toolCalls, usage }, "agent.generate.step");
+      };
 
       const generateOptions = {
         ...(await this.prepareCall(options)),
@@ -184,17 +190,19 @@ export class PlanbAgent<
     const log = logger.child({ traceId, agent: this.id });
 
     try {
-      const promptSummary = typeof options.prompt === "string"
-        ? truncateContent(options.prompt)
-        : Array.isArray(options.prompt)
-          ? `[${options.prompt.length} messages]`
-          : "";
+      const promptSummary =
+        typeof options.prompt === "string"
+          ? truncateContent(options.prompt)
+          : Array.isArray(options.prompt)
+            ? `[${options.prompt.length} messages]`
+            : "";
       log.info({ prompt: promptSummary }, "agent.stream.start");
 
-      const loggingOnStepFinish: StreamTextOnStepFinishCallback<TOOLS> =
-        async ({ stepNumber, toolCalls, usage }) => {
-          log.debug({ stepNumber, toolCalls, usage }, "agent.stream.step");
-        };
+      const loggingOnStepFinish: StreamTextOnStepFinishCallback<
+        TOOLS
+      > = async ({ stepNumber, toolCalls, usage }) => {
+        log.debug({ stepNumber, toolCalls, usage }, "agent.stream.step");
+      };
 
       return streamText({
         ...(await this.prepareCall(options)),
@@ -218,7 +226,6 @@ type AgentSetting = {
   content: string;
   frontmatter: Agent;
 };
-
 export function createAgent<TOOLS extends ToolSet = typeof Tools>(
   agent: string,
   provider: PlanbProvider,
@@ -248,9 +255,7 @@ export function createAgent<TOOLS extends ToolSet = typeof Tools>(
       : undefined;
 
   logger.debug(
-    toolset
-      ? { agent, tools: Object.keys(toolset) }
-      : { agent, tools: [] },
+    toolset ? { agent, tools: Object.keys(toolset) } : { agent, tools: [] },
     "agent.tools.loaded",
   );
 

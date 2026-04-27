@@ -9,7 +9,7 @@ describe("Tool Call Test", () => {
     migrate(testdb, { migrationsFolder: "./drizzle" });
   });
   afterEach(async () => {
-    await testdb.delete(schema.messages);
+    await testdb.delete(schema.message);
     await testdb.delete(schema.chat);
   });
 });

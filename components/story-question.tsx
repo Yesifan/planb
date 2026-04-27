@@ -67,7 +67,10 @@ export default function StoryQuestion({
           <HelpCircle className="size-5" />
         </div>
         <div>
-          <p className="text-muted-foreground mt-1">{question.title}</p>
+          <h3 className="">{question.title}</h3>
+          {question.describe && (
+            <p className="text-muted-foreground mt-1">{question.describe}</p>
+          )}
         </div>
       </div>
 
