@@ -11,9 +11,10 @@ import {
 } from "ai";
 import { generateText, hasToolCall, stepCountIs, streamText } from "ai";
 
+import logger, { truncateContent } from "../logger";
 import { primaryModel, secondaryModel } from "./provider";
 import Tools from "./tool";
-import { Agent, PlanbProvider } from "./type";
+import { Agent, PlanbProvider, ToolContext } from "./type";
 
 export class PlanbAgent<
   CALL_OPTIONS = never,
@@ -82,21 +83,30 @@ export class PlanbAgent<
   }
 
   private mergeOnStepFinishCallbacks(
-    methodCallback:
+    ...callbacks: (
       | GenerateTextOnStepFinishCallback<TOOLS>
       | StreamTextOnStepFinishCallback<TOOLS>
-      | undefined,
+      | undefined
+    )[]
   ) {
     const constructorCallback = this.settings.onStepFinish;
+    const allCallbacks = [constructorCallback, ...callbacks].filter(
+      (cb): cb is NonNullable<typeof cb> => cb !== undefined,
+    );
 
-    if (methodCallback && constructorCallback) {
-      return async (stepResult: StepResult<TOOLS>) => {
-        await constructorCallback(stepResult);
-        await methodCallback(stepResult);
-      };
+    if (allCallbacks.length === 0) {
+      return undefined;
     }
 
-    return methodCallback ?? constructorCallback;
+    if (allCallbacks.length === 1) {
+      return allCallbacks[0];
+    }
+
+    return async (stepResult: StepResult<TOOLS>) => {
+      for (const callback of allCallbacks) {
+        await callback(stepResult);
+      }
+    };
   }
 
   /**
@@ -106,20 +116,75 @@ export class PlanbAgent<
     abortSignal,
     timeout,
     onStepFinish,
+    experimental_context,
     ...options
   }: Omit<Parameters<typeof generateText<TOOLS, OUTPUT>>[0], "model">): Promise<
     GenerateTextResult<TOOLS, OUTPUT>
   > {
-    const generateOptions = {
-      ...(await this.prepareCall(options)),
-      abortSignal,
-      timeout,
-      onStepFinish: this.mergeOnStepFinishCallbacks(
-        onStepFinish,
-      ) as GenerateTextOnStepFinishCallback<TOOLS>,
-    };
+    const traceId = (experimental_context as ToolContext | undefined)?.traceId;
+    const log = logger.child({ traceId, agent: this.id });
+    const startTime = Date.now();
 
-    return generateText(generateOptions);
+    try {
+      // Log start
+      try {
+        const promptSummary = typeof options.prompt === "string"
+          ? truncateContent(options.prompt)
+          : Array.isArray(options.prompt)
+            ? `[${options.prompt.length} messages]`
+            : "";
+        log.info({ prompt: promptSummary }, "agent.generate.start");
+      } catch {
+        // Log failure must not affect business logic
+      }
+
+      // Create logging callback for steps
+      const loggingOnStepFinish: GenerateTextOnStepFinishCallback<TOOLS> =
+        async ({ stepNumber, toolCalls, usage }) => {
+          try {
+            log.debug({ stepNumber, toolCalls, usage }, "agent.generate.step");
+          } catch {
+            // Log failure must not affect business logic
+          }
+        };
+
+      const generateOptions = {
+        ...(await this.prepareCall(options)),
+        abortSignal,
+        timeout,
+        experimental_context,
+        onStepFinish: this.mergeOnStepFinishCallbacks(
+          onStepFinish,
+          loggingOnStepFinish,
+        ) as GenerateTextOnStepFinishCallback<TOOLS>,
+      };
+
+      const result = await generateText(generateOptions);
+
+      // Log end
+      try {
+        const durationMs = Date.now() - startTime;
+        log.info(
+          {
+            durationMs,
+            text: truncateContent(result.text),
+            usage: result.totalUsage,
+          },
+          "agent.generate.end",
+        );
+      } catch {
+        // Log failure must not affect business logic
+      }
+
+      return result;
+    } catch (error) {
+      try {
+        log.error({ error }, "agent.generate.error");
+      } catch {
+        // Log failure must not affect business logic
+      }
+      throw error;
+    }
   }
 
   /**
@@ -130,17 +195,56 @@ export class PlanbAgent<
     timeout,
     experimental_transform,
     onStepFinish,
+    experimental_context,
     ...options
   }: Omit<Parameters<typeof streamText<TOOLS, OUTPUT>>[0], "model">): Promise<
     StreamTextResult<TOOLS, OUTPUT>
   > {
-    return streamText({
-      ...(await this.prepareCall(options)),
-      abortSignal,
-      timeout,
-      experimental_transform,
-      onStepFinish: this.mergeOnStepFinishCallbacks(onStepFinish),
-    });
+    const traceId = (experimental_context as ToolContext | undefined)?.traceId;
+    const log = logger.child({ traceId, agent: this.id });
+
+    try {
+      // Log start
+      try {
+        const promptSummary = typeof options.prompt === "string"
+          ? truncateContent(options.prompt)
+          : Array.isArray(options.prompt)
+            ? `[${options.prompt.length} messages]`
+            : "";
+        log.info({ prompt: promptSummary }, "agent.stream.start");
+      } catch {
+        // Log failure must not affect business logic
+      }
+
+      // Create logging callback for steps
+      const loggingOnStepFinish: StreamTextOnStepFinishCallback<TOOLS> =
+        async ({ stepNumber, toolCalls, usage }) => {
+          try {
+            log.debug({ stepNumber, toolCalls, usage }, "agent.stream.step");
+          } catch {
+            // Log failure must not affect business logic
+          }
+        };
+
+      return streamText({
+        ...(await this.prepareCall(options)),
+        abortSignal,
+        timeout,
+        experimental_transform,
+        experimental_context,
+        onStepFinish: this.mergeOnStepFinishCallbacks(
+          onStepFinish,
+          loggingOnStepFinish,
+        ),
+      });
+    } catch (error) {
+      try {
+        log.error({ error }, "agent.stream.error");
+      } catch {
+        // Log failure must not affect business logic
+      }
+      throw error;
+    }
   }
 }
 
@@ -163,7 +267,7 @@ export function createAgent<TOOLS extends ToolSet = typeof Tools>(
     if (toolName in Tools) {
       acc[toolName] = Tools[toolName as keyof typeof Tools];
     } else {
-      console.debug(`${toolName} tool not found with ${agent} agent!`);
+      logger.warn({ tool: toolName, agent }, "agent.tool.not_found");
     }
     return acc;
   }, {});
@@ -177,10 +281,11 @@ export function createAgent<TOOLS extends ToolSet = typeof Tools>(
           : undefined
       : undefined;
 
-  console.debug(
+  logger.debug(
     toolset
-      ? `${agent} load ${Object.keys(toolset)} tools`
-      : `${agent} not load tools!`,
+      ? { agent, tools: Object.keys(toolset) }
+      : { agent, tools: [] },
+    "agent.tools.loaded",
   );
 
   const hasToolCallFun = stopWhen?.hasToolCall

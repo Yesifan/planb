@@ -5,11 +5,21 @@ import { nanoid } from "nanoid";
 
 import { db } from "@/lib/db";
 import { ArchivistAgent } from "@/lib/llm";
+import logger from "@/lib/logger";
 
 import { getSessionWithRedirect } from "../auth/server";
 import { chat, messages, story } from "../db/schema";
 
 export async function createStory(source: string, singularity: string) {
+  const traceId = nanoid();
+  const log = logger.child({ traceId, action: "createStory" });
+
+  try {
+    log.info({ source, singularity }, "action.createStory.start");
+  } catch {
+    // ignore
+  }
+
   const session = await getSessionWithRedirect();
 
   try {
@@ -38,7 +48,7 @@ export async function createStory(source: string, singularity: string) {
 
     const { toolCalls, text } = await ArchivistAgent.generate({
       prompt,
-      experimental_context: { db },
+      experimental_context: { db, traceId },
       async onFinish({ text, reasoning, totalUsage, model }) {
         const now = new Date();
         const reasoningText = reasoning.reduce((acc, reason) => {
@@ -60,6 +70,12 @@ export async function createStory(source: string, singularity: string) {
       },
     });
 
+    try {
+      log.info({ chatId, toolCallsCount: toolCalls.length }, "action.createStory.end");
+    } catch {
+      // ignore
+    }
+
     // 5. Return result
     return {
       id: chatId,
@@ -67,8 +83,11 @@ export async function createStory(source: string, singularity: string) {
       text: text,
     };
   } catch (error) {
-    console.log(error);
-    console.error("Error in createStory:", error);
+    try {
+      log.error({ error }, "action.createStory.error");
+    } catch {
+      // ignore
+    }
     if (error instanceof Error) {
       throw error;
     }
@@ -78,6 +97,14 @@ export async function createStory(source: string, singularity: string) {
 
 // API 参考 https://ai-sdk.dev/cookbook/rsc/stream-text#stream-text
 export async function continueConversation(chatId: string, prompt: string) {
+  const traceId = nanoid();
+  const log = logger.child({ traceId, action: "continueConversation" });
+
+  try {
+    log.info({ chatId, prompt }, "action.continueConversation.start");
+  } catch {
+    // ignore
+  }
   // const history = await db.query.messages.findMany({
   //   where: {
   //     chatId: chatId,
@@ -107,9 +134,13 @@ export async function continueConversation(chatId: string, prompt: string) {
           content: prompt,
         },
       ],
-      experimental_context: { db, chatId: chatId },
+      experimental_context: { db, chatId: chatId, traceId },
       onError({ error }) {
-        console.error("stream", error);
+        try {
+          log.error({ error }, "action.continueConversation.error");
+        } catch {
+          // ignore
+        }
       },
     });
 

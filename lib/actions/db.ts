@@ -9,6 +9,7 @@ import type { Chat, Message, Story } from "@/lib/db/schema";
 import { chat, story } from "@/lib/db/schema";
 import { ArchivistAgent } from "@/lib/llm";
 import Tools, { ToolNames } from "@/lib/llm/tool";
+import logger from "@/lib/logger";
 
 export interface ChatWithStory {
   chat: Chat;
@@ -48,7 +49,7 @@ export async function getChatWithStory(
 
     return { chat: chat, story: story };
   } catch (error) {
-    console.error("Error fetching chat with story:", error);
+    logger.error({ action: "getChatWithStory", chatId, error }, "db.query.error");
     throw new Error("Failed to load chat data");
   }
 }
@@ -72,7 +73,7 @@ export async function getChatMessages(chatId: string): Promise<Message[]> {
       },
     });
   } catch (error) {
-    console.error("Error fetching chat messages:", error);
+    logger.error({ action: "getChatMessages", chatId, error }, "db.query.error");
     throw new Error("Failed to load messages");
   }
 }

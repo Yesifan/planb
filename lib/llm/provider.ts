@@ -7,13 +7,14 @@ import {
 import { InvalidArgumentError,LanguageModel, NoSuchModelError } from "ai";
 import { load } from "js-yaml";
 
+import logger from "../logger";
 import { ConfigValidationError } from "./errors";
 import { createMockProvider } from "./mock-provider";
 import { LLMConfigSchema,MockProvider, PlanbProvider, Provider } from "./type";
 
 const PLANB_SETTINGS_PATH = process.env.PLANB_SETTINGS_PATH ?? "planb.yml";
 
-console.debug("PLANB_SETTINGS_PATH", PLANB_SETTINGS_PATH);
+logger.debug({ path: PLANB_SETTINGS_PATH }, "provider.config.loaded");
 
 const yamlContent = readFileSync(
   /*turbopackIgnore: true*/ PLANB_SETTINGS_PATH,

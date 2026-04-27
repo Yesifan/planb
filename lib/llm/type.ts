@@ -76,4 +76,12 @@ export interface PlanbProvider<
 export interface ToolContext {
   db: DB;
   sessionId: string;
+  traceId?: string;
+}
+
+export interface LogContext {
+  traceId: string;
+  agentName: string;
+  model?: string;
+  chatId?: string;
 }
