@@ -126,26 +126,16 @@ export class PlanbAgent<
     const startTime = Date.now();
 
     try {
-      // Log start
-      try {
-        const promptSummary = typeof options.prompt === "string"
-          ? truncateContent(options.prompt)
-          : Array.isArray(options.prompt)
-            ? `[${options.prompt.length} messages]`
-            : "";
-        log.info({ prompt: promptSummary }, "agent.generate.start");
-      } catch {
-        // Log failure must not affect business logic
-      }
+      const promptSummary = typeof options.prompt === "string"
+        ? truncateContent(options.prompt)
+        : Array.isArray(options.prompt)
+          ? `[${options.prompt.length} messages]`
+          : "";
+      log.info({ prompt: promptSummary }, "agent.generate.start");
 
-      // Create logging callback for steps
       const loggingOnStepFinish: GenerateTextOnStepFinishCallback<TOOLS> =
         async ({ stepNumber, toolCalls, usage }) => {
-          try {
-            log.debug({ stepNumber, toolCalls, usage }, "agent.generate.step");
-          } catch {
-            // Log failure must not affect business logic
-          }
+          log.debug({ stepNumber, toolCalls, usage }, "agent.generate.step");
         };
 
       const generateOptions = {
@@ -161,28 +151,18 @@ export class PlanbAgent<
 
       const result = await generateText(generateOptions);
 
-      // Log end
-      try {
-        const durationMs = Date.now() - startTime;
-        log.info(
-          {
-            durationMs,
-            text: truncateContent(result.text),
-            usage: result.totalUsage,
-          },
-          "agent.generate.end",
-        );
-      } catch {
-        // Log failure must not affect business logic
-      }
+      log.info(
+        {
+          durationMs: Date.now() - startTime,
+          text: truncateContent(result.text),
+          usage: result.totalUsage,
+        },
+        "agent.generate.end",
+      );
 
       return result;
     } catch (error) {
-      try {
-        log.error({ error }, "agent.generate.error");
-      } catch {
-        // Log failure must not affect business logic
-      }
+      log.error({ error }, "agent.generate.error");
       throw error;
     }
   }
@@ -204,26 +184,16 @@ export class PlanbAgent<
     const log = logger.child({ traceId, agent: this.id });
 
     try {
-      // Log start
-      try {
-        const promptSummary = typeof options.prompt === "string"
-          ? truncateContent(options.prompt)
-          : Array.isArray(options.prompt)
-            ? `[${options.prompt.length} messages]`
-            : "";
-        log.info({ prompt: promptSummary }, "agent.stream.start");
-      } catch {
-        // Log failure must not affect business logic
-      }
+      const promptSummary = typeof options.prompt === "string"
+        ? truncateContent(options.prompt)
+        : Array.isArray(options.prompt)
+          ? `[${options.prompt.length} messages]`
+          : "";
+      log.info({ prompt: promptSummary }, "agent.stream.start");
 
-      // Create logging callback for steps
       const loggingOnStepFinish: StreamTextOnStepFinishCallback<TOOLS> =
         async ({ stepNumber, toolCalls, usage }) => {
-          try {
-            log.debug({ stepNumber, toolCalls, usage }, "agent.stream.step");
-          } catch {
-            // Log failure must not affect business logic
-          }
+          log.debug({ stepNumber, toolCalls, usage }, "agent.stream.step");
         };
 
       return streamText({
@@ -238,11 +208,7 @@ export class PlanbAgent<
         ),
       });
     } catch (error) {
-      try {
-        log.error({ error }, "agent.stream.error");
-      } catch {
-        // Log failure must not affect business logic
-      }
+      log.error({ error }, "agent.stream.error");
       throw error;
     }
   }

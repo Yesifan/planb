@@ -14,11 +14,7 @@ export async function createStory(source: string, singularity: string) {
   const traceId = nanoid();
   const log = logger.child({ traceId, action: "createStory" });
 
-  try {
-    log.info({ source, singularity }, "action.createStory.start");
-  } catch {
-    // ignore
-  }
+  log.info({ source, singularity }, "action.createStory.start");
 
   const session = await getSessionWithRedirect();
 
@@ -70,11 +66,10 @@ export async function createStory(source: string, singularity: string) {
       },
     });
 
-    try {
-      log.info({ chatId, toolCallsCount: toolCalls.length }, "action.createStory.end");
-    } catch {
-      // ignore
-    }
+    log.info(
+      { chatId, toolCallsCount: toolCalls.length },
+      "action.createStory.end",
+    );
 
     // 5. Return result
     return {
@@ -82,12 +77,8 @@ export async function createStory(source: string, singularity: string) {
       toolCalls: toolCalls,
       text: text,
     };
-  } catch (error) {
-    try {
-      log.error({ error }, "action.createStory.error");
-    } catch {
-      // ignore
-    }
+  }    catch (error) {
+    log.error({ error }, "action.createStory.error");
     if (error instanceof Error) {
       throw error;
     }
@@ -100,11 +91,8 @@ export async function continueConversation(chatId: string, prompt: string) {
   const traceId = nanoid();
   const log = logger.child({ traceId, action: "continueConversation" });
 
-  try {
-    log.info({ chatId, prompt }, "action.continueConversation.start");
-  } catch {
-    // ignore
-  }
+  log.info({ chatId, prompt }, "action.continueConversation.start");
+
   // const history = await db.query.messages.findMany({
   //   where: {
   //     chatId: chatId,
@@ -136,11 +124,7 @@ export async function continueConversation(chatId: string, prompt: string) {
       ],
       experimental_context: { db, chatId: chatId, traceId },
       onError({ error }) {
-        try {
-          log.error({ error }, "action.continueConversation.error");
-        } catch {
-          // ignore
-        }
+        log.error({ error }, "action.continueConversation.error");
       },
     });
 
