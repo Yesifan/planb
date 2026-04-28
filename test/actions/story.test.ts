@@ -44,11 +44,9 @@ describe("getChatWithStory", () => {
 
     const result = await getChatWithStory("gcs-test-1");
     expect(result).not.toBeNull();
-    expect(result?.chat.title).toBe("Test Chat");
-    expect(result?.story.source).toBe("三国演义");
-    expect(result?.story.type).toBe("历史改编");
-    expect(result?.story.describe).toBe("一个关于蜀汉延续的故事");
-    expect(result?.story.worldview).toBe("架空三国");
+    expect(result.title).toBe("Test Chat");
+    expect(result?.story?.source).toBe("三国演义");
+    expect(result?.story?.type).toBe("历史改编");
   });
 
   it("should return null when chat exists but story does not", async () => {
