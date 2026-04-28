@@ -1,6 +1,7 @@
 "use server";
 
 import { createStreamableValue } from "@ai-sdk/rsc";
+import type { UIMessageChunk } from "ai";
 import { nanoid } from "nanoid";
 
 import { db } from "@/lib/db";
@@ -10,6 +11,8 @@ import logger from "@/lib/logger";
 import { getSessionWithRedirect } from "../auth/server";
 import { chat, story } from "../db/schema";
 import { saveMessageWithTool } from "../llm/db";
+import { toModelMessage } from "../llm/utils";
+import { getChatMessages } from "./db";
 
 export async function createStory(source: string, singularity: string) {
   const traceId = nanoid();
@@ -19,63 +22,54 @@ export async function createStory(source: string, singularity: string) {
 
   const session = await getSessionWithRedirect();
 
-  try {
-    const prompt = `source: ${source}\n singularity: ${singularity}`;
+  const prompt = `source: ${source}\n singularity: ${singularity}`;
 
-    const chatId = nanoid();
-    const storyId = nanoid();
-    const now = new Date();
+  const chatId = nanoid();
+  const storyId = nanoid();
+  const messageId = nanoid();
+  const now = new Date();
 
-    // First insert into chat table
-    await db.insert(chat).values({
-      id: chatId,
-      userId: session.user.id,
-      title: source,
-      createdAt: now,
-      updatedAt: now,
-    });
-    await db.insert(story).values({
-      id: storyId,
-      chatId,
-      source,
-      singularity,
-      createdAt: now,
-      updatedAt: now,
-    });
+  // First insert into chat table
+  await db.insert(chat).values({
+    id: chatId,
+    userId: session.user.id,
+    title: source,
+    createdAt: now,
+    updatedAt: now,
+  });
+  await db.insert(story).values({
+    id: storyId,
+    chatId,
+    source,
+    singularity,
+    createdAt: now,
+    updatedAt: now,
+  });
 
-    const { toolCalls, text } = await ArchivistAgent.generate({
+  const stream = createStreamableValue<UIMessageChunk>();
+  (async () => {
+    const result = await ArchivistAgent.stream({
       prompt,
       experimental_context: { db, chatId, traceId },
       onFinish(event) {
-        saveMessageWithTool(event, { db, chatId, traceId });
+        saveMessageWithTool(messageId, event, { db, chatId, traceId });
       },
     });
-    const toolCall = toolCalls.length ? toolCalls[0] : undefined;
 
-    log.info({ chatId, toolCalls }, "action.createStory.end");
+    const uiMessages = result.toUIMessageStream();
 
-    if (toolCall) {
-      if (toolCall.dynamic !== true && toolCall.toolName === "createQuestion") {
-        return {
-          id: chatId,
-          toolCall: toolCall,
-        };
-      }
-      log.error({ chatId, toolCalls }, "action.createStory.toolCallsError");
-      throw new Error("意料外的 Toolcall");
-    } else {
-      return {
-        id: chatId,
-        text: text,
-      };
+    for await (const chunk of uiMessages) {
+      stream.update(chunk);
     }
-  } catch (error) {
-    log.error({ error }, "action.createStory.error");
-    if (error instanceof Error) {
-      throw error;
-    }
-    throw new Error("Failed to create story. Please try again.");
-  }
+
+    stream.done();
+  })();
+
+  return {
+    id: chatId,
+    messageId: messageId,
+    content: stream.value,
+  };
 }
 
 // API 参考 https://ai-sdk.dev/cookbook/rsc/stream-text#stream-text
@@ -84,31 +78,15 @@ export async function continueConversation(chatId: string, prompt: string) {
   const log = logger.child({ traceId, action: "continueConversation" });
 
   log.info({ chatId, prompt }, "action.continueConversation.start");
+  const messages = await getChatMessages(chatId);
+  const modelMessages = toModelMessage(messages);
 
-  // const history = await db.query.messages.findMany({
-  //   where: {
-  //     chatId: chatId,
-  //     NOT: {
-  //       role: "tool",
-  //     },
-  //   },
-  //   orderBy: {
-  //     createdAt: "desc",
-  //   },
-  //   limit: 10,
-  // });
-
-  // const messages = history.reverse().map((message) => ({
-  //   role: message.role,
-  //   content: message.content,
-  // })) as ModelMessage[];
-
-  const stream = createStreamableValue();
+  const stream = createStreamableValue<UIMessageChunk>();
 
   (async () => {
-    const { textStream } = await ArchivistAgent.stream({
+    const result = await ArchivistAgent.stream({
       messages: [
-        // ...messages,
+        ...modelMessages,
         {
           role: "user",
           content: prompt,
@@ -120,14 +98,19 @@ export async function continueConversation(chatId: string, prompt: string) {
       },
     });
 
-    for await (const text of textStream) {
-      stream.update(text);
+    const uiMessages = result.toUIMessageStream();
+
+    for await (const chunk of uiMessages) {
+      stream.update(chunk);
     }
 
     stream.done();
   })();
 
-  return stream.value;
+  return {
+    id: chatId,
+    content: stream.value,
+  };
 }
 
 // RSC 多步骤 https://ai-sdk.dev/docs/ai-sdk-rsc/multistep-interfaces
