@@ -214,6 +214,17 @@ const table = sqliteTable("session", {
 });
 ```
 
+### 类型标注最小化原则
+
+只在 TS 确实推断不出来的地方添加标注：
+
+```ts
+// ❌ Bad：冗余标注
+const contentParts: Array<TextPart | ToolCallPart> = [];
+// ✅ Good：让 TS 推断
+const contentParts = [{ type: "text", text: message.text }];
+```
+
 ---
 
 ## WORKFLOW
