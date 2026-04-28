@@ -1,4 +1,4 @@
-import { tool } from "ai";
+import { InferUITools, tool, ToolSet } from "ai";
 import z from "zod";
 
 import { createStory } from "./story";
@@ -25,17 +25,10 @@ const createQuestion = tool({
   inputSchema: createQuestionSchema,
 });
 
-const Tools = { createStory, createQuestion } as const;
+const Tools = { createStory, createQuestion } satisfies ToolSet;
 
-type ToolKey = keyof typeof Tools;
+export type MyTools = InferUITools<typeof Tools>;
+export const ToolKeys = ["createStory", "createQuestion"] as const;
 
-export const ToolNames = Object.keys(Tools).reduce(
-  (acc, key) => {
-    const k = key as never;
-    acc[k] = k;
-    return acc;
-  },
-  {} as { [K in ToolKey]: K }, // 🌟 优化：保留严格的字面量类型
-);
 export type CreateQuestion = z.infer<typeof createQuestionSchema>;
 export default Tools;

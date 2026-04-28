@@ -1,24 +1,20 @@
 "use server";
 
 import { notFound, unauthorized } from "next/navigation";
+import { performance } from "perf_hooks";
 
 import { getSessionWithRedirect } from "@/lib/auth/server";
 import { db } from "@/lib/db";
-import type { Chat, Message, Story } from "@/lib/db/schema";
 import logger from "@/lib/logger";
 
-export interface ChatWithStory {
-  chat: Chat;
-  story: Story;
-}
-
-export async function getChatWithStory(
-  chatId: string,
-): Promise<ChatWithStory | null> {
+export async function getChatWithStory(chatId: string) {
   const session = await getSessionWithRedirect();
 
   try {
     const chat = await db.query.chat.findFirst({
+      with: {
+        story: true,
+      },
       where: {
         id: chatId,
       },
@@ -31,29 +27,15 @@ export async function getChatWithStory(
       return unauthorized();
     }
 
-    const story = await db.query.story.findFirst({
-      where: {
-        chatId: chatId,
-      },
-    });
-
-    if (!story) {
-      throw new Error(
-        `There is not found corresponding story for chat(id:${chatId}).`,
-      );
-    }
-
-    return { chat: chat, story: story };
+    return chat;
   } catch (error) {
-    logger.error(
-      { action: "getChatWithStory", chatId, error },
-      "db.query.error",
-    );
+    logger.error({ chatId, error }, "db.query.error");
     throw new Error("Failed to load chat data");
   }
 }
 
-export async function getChatMessages(chatId: string): Promise<Message[]> {
+export async function getChatMessages(chatId: string) {
+  const start = performance.now();
   const session = await getSessionWithRedirect();
 
   try {
@@ -67,12 +49,26 @@ export async function getChatMessages(chatId: string): Promise<Message[]> {
       return notFound();
     }
     return await db.query.message.findMany({
+      with: {
+        toolCalls: true,
+      },
       where: {
         chatId: chatId,
       },
+      orderBy: {
+        createdAt: "desc",
+      },
+      limit: 10,
     });
   } catch (error) {
     logger.error({ chatId, error }, "getChatMessages.error");
     throw error;
+  } finally {
+    logger.info(
+      {
+        duration: performance.now() - start,
+      },
+      "getChatMessages",
+    );
   }
 }

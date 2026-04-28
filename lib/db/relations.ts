@@ -25,6 +25,7 @@ export const relations = defineRelationsPart(schema, (r) => ({
       from: r.chat.userId,
       to: r.user.id,
     }),
+    story: r.one.story(),
     messages: r.many.message(),
     history: r.many.history(),
   },

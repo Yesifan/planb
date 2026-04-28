@@ -1,8 +1,8 @@
 "use client";
 
-import { MessageSquare, RotateCw } from "lucide-react";
+import { MessageSquare } from "lucide-react";
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import z from "zod";
 
 import {
@@ -27,39 +27,41 @@ import {
 } from "@/components/story-prompt";
 import StoryQuestion from "@/components/story-question";
 import StorySetting from "@/components/story-setting";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { useStory } from "@/hooks/use-story";
 import type { CreateQuestion } from "@/lib/llm/tool";
+import logger from "@/lib/logger";
 
 export default function StoryPage() {
   const params = useParams<{ chat?: string[] }>();
   const _chatId = params.chat?.[0];
+
   const [chatId, setChatId] = useState<string | undefined>(_chatId);
-  const [question, setQuestion] = useState<CreateQuestion | undefined>();
+  // const [question, setQuestion] = useState<CreateQuestion | undefined>();
   const [input, setInput] = useState("");
-  const {
-    messages,
-    chat,
-    story,
-    isLoading,
-    error,
-    retry,
-    createStory,
-    sendMessage,
-  } = useStory(chatId);
+  const { messages, chat, story, isLoading, error, createStory, sendMessage } =
+    useStory(chatId);
+
+  const question = useMemo(() => {
+    if (messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+
+      if (lastMessage.parts.length > 0) {
+        const lastPart = lastMessage.parts[lastMessage.parts.length - 1];
+        if (lastPart.type === "tool-createQuestion" && !lastPart.output) {
+          logger.debug(lastPart, "create question");
+
+          return lastPart.input as CreateQuestion;
+        }
+      }
+      return undefined;
+    }
+  }, [messages]);
 
   const onCreate = async (values: z.infer<typeof createStoryFormSchema>) => {
-    const { id, toolCall } = await createStory(
-      values.source,
-      values.singularity,
-    );
+    const id = await createStory(values.source, values.singularity);
     setChatId(id);
-    console.debug("toolCall", toolCall);
-    if (toolCall) {
-      setQuestion(toolCall.input);
-    }
   };
 
   if (!chatId) {
@@ -84,10 +86,6 @@ export default function StoryPage() {
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <p className="text-muted-foreground">{error}</p>
-            <Button variant="outline" onClick={retry} className="w-full">
-              <RotateCw className="mr-2 size-4" />
-              重试
-            </Button>
           </CardContent>
         </Card>
       </div>
@@ -103,42 +101,31 @@ export default function StoryPage() {
       <div className="flex flex-1 flex-col">
         <Conversation className="flex-1 p-6">
           <ConversationContent>
-            {messages.length === 0 ? (
-              <ConversationEmptyState
-                icon={<MessageSquare className="size-12" />}
-                title="开始对话"
-                description="在下方输入消息开始聊天"
-              />
-            ) : (
-              messages.map((message) => (
-                <Message from={message.role} key={message.id}>
-                  <MessageContent>
-                    {message.parts.map((part, i) => {
-                      switch (part.type) {
-                        case "text":
-                          return (
-                            <MessageResponse key={`${message.id}-${i}`}>
-                              {part.text}
-                            </MessageResponse>
-                          );
-                        default:
-                          return null;
-                      }
-                    })}
-                  </MessageContent>
-                </Message>
-              ))
-            )}
+            {messages.map((message) => (
+              <Message from={message.role} key={message.id}>
+                <MessageContent>
+                  {message.parts.map((part, i) => {
+                    switch (part.type) {
+                      case "text":
+                        return (
+                          <MessageResponse key={`${message.id}-${i}`}>
+                            {part.text}
+                          </MessageResponse>
+                        );
+                      default:
+                        return null;
+                    }
+                  })}
+                </MessageContent>
+              </Message>
+            ))}
           </ConversationContent>
           <ConversationScrollButton />
         </Conversation>
         {question ? (
           <StoryQuestion
             question={question}
-            onSubmit={async (message) => {
-              await sendMessage(message);
-              setQuestion(undefined);
-            }}
+            onSubmit={async (message) => await sendMessage(message)}
             className="my-4"
           />
         ) : (

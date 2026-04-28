@@ -1,6 +1,6 @@
 "use client";
 
-import { MessageSquare, RotateCw } from "lucide-react";
+import { MessageSquare } from "lucide-react";
 import { useState } from "react";
 
 import {
@@ -19,7 +19,6 @@ import {
   PromptInputSubmit,
   PromptInputTextarea,
 } from "@/components/ai-elements/prompt-input";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { useStory } from "@/hooks/use-story";
@@ -29,7 +28,7 @@ import StorySetting from "./story-setting";
 
 export default function ConversationView({ chatId }: { chatId: string }) {
   const [input, setInput] = useState("");
-  const { messages, chat, story, isLoading, error, retry, sendMessage } =
+  const { messages, chat, story, isLoading, error, sendMessage } =
     useStory(chatId);
 
   if (isLoading) {
@@ -48,12 +47,8 @@ export default function ConversationView({ chatId }: { chatId: string }) {
           <CardHeader>
             <CardTitle>加载失败</CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-col gap-4">
+          <CardContent>
             <p className="text-muted-foreground">{error}</p>
-            <Button variant="outline" onClick={retry} className="w-full">
-              <RotateCw className="mr-2 size-4" />
-              重试
-            </Button>
           </CardContent>
         </Card>
       </div>

@@ -8,6 +8,7 @@ import Tools from "./tool";
 import { ToolContext } from "./type";
 
 export const saveMessageWithTool = async (
+  messageId: string,
   {
     text,
     reasoning,
@@ -30,7 +31,6 @@ export const saveMessageWithTool = async (
   }
 
   const now = new Date();
-  const messageId = nanoid();
 
   const reasoningText = reasoning.reduce(
     (acc, reason) => acc + reason.text,

@@ -1,9 +1,13 @@
 import { ProviderV3 } from "@ai-sdk/provider";
-import { LanguageModel } from "ai";
+import { InferUITools, LanguageModel, UIDataTypes, UIMessage } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 import z from "zod";
 
 import { DB } from "../db";
+import Tools from "./tool";
+
+export type MyUITools = InferUITools<typeof Tools>;
+export type MyUIMessage = UIMessage<never, UIDataTypes, MyUITools>;
 
 export type AgentId =
   | "Arbiter"
