@@ -1,6 +1,5 @@
 "use client";
 
-import { useParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import z from "zod";
 
@@ -27,19 +26,21 @@ import StoryQuestion from "@/components/story-question";
 import StorySetting from "@/components/story-setting";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
-import { useStory } from "@/hooks/use-story";
+import { useStoryContext } from "@/hooks/use-story";
 import type { CreateQuestion } from "@/lib/llm/tool";
-import logger from "@/lib/logger";
 
 export default function StoryPage() {
-  const params = useParams<{ chat?: string[] }>();
-  const _chatId = params.chat?.[0];
-
-  const [chatId, setChatId] = useState<string | undefined>(_chatId);
-  // const [question, setQuestion] = useState<CreateQuestion | undefined>();
   const [input, setInput] = useState("");
-  const { messages, chat, story, isLoading, error, createStory, sendMessage } =
-    useStory(chatId);
+  const {
+    chatId,
+    messages,
+    chat,
+    story,
+    isLoading,
+    error,
+    createStory,
+    sendMessage,
+  } = useStoryContext();
 
   const question = useMemo(() => {
     if (messages.length > 0) {
@@ -48,8 +49,6 @@ export default function StoryPage() {
       if (lastMessage.parts.length > 0) {
         const lastPart = lastMessage.parts[lastMessage.parts.length - 1];
         if (lastPart.type === "tool-createQuestion" && !lastPart.output) {
-          logger.debug(lastPart, "create question");
-
           return lastPart.input as CreateQuestion;
         }
       }
@@ -58,8 +57,7 @@ export default function StoryPage() {
   }, [messages]);
 
   const onCreate = async (values: z.infer<typeof createStoryFormSchema>) => {
-    const id = await createStory(values.source, values.singularity);
-    setChatId(id);
+    await createStory(values.source, values.singularity);
   };
 
   if (!chatId) {

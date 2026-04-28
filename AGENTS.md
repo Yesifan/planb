@@ -149,9 +149,29 @@ const onSubmit = async (values) => {
 - 合理的拆分 Component，单个 Component 应该保持在 300 行以内（不包括 import lines）
 - 除非明确要求，否则不要在生成的组件内进行数据获取（例如，⁠fetch()、用于 API 调用的 ⁠useEffect）
 
-### Code Patterns
+## Code Patterns
 
-Reduce total variable count by inlining when a value is only used once.
+### React Hooks
+
+一个 effect 只做一件事
+
+```ts
+// Good
+useEffect(() => {
+  // do a
+}, [a]);
+useEffect(() => {
+  // do b
+}, [a]);
+
+// Bad
+useEffect(() => {
+  // do a
+  // do b
+}, [a]);
+```
+
+### Reduce total variable count by inlining when a value is only used once.
 
 ```ts
 // Good

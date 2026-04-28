@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import logger from "@/lib/logger";
 
 export async function getChatWithStory(chatId: string) {
+  const start = performance.now();
   const session = await getSessionWithRedirect();
 
   try {
@@ -31,6 +32,13 @@ export async function getChatWithStory(chatId: string) {
   } catch (error) {
     logger.error({ chatId, error }, "db.query.error");
     throw new Error("Failed to load chat data");
+  } finally {
+    logger.info(
+      {
+        duration: performance.now() - start,
+      },
+      "getChatWithStory",
+    );
   }
 }
 
