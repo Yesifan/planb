@@ -125,6 +125,12 @@ export function StoryProvider({ children }: { children: ReactNode }) {
           return [...without, uiMessage];
         });
       }
+
+      // Refresh story state after stream completes (story settings may have been updated)
+      const updatedChat = await getChatWithStory(chatId);
+      if (updatedChat.story) {
+        setStory(updatedChat.story);
+      }
     },
     [chatId],
   );
