@@ -21,7 +21,6 @@ import {
 import type { Chat, Story } from "@/lib/db/schema";
 import { MyUIMessage } from "@/lib/llm/type";
 import { streamToUIMessage, toUIMessages } from "@/lib/llm/utils";
-import logger from "@/lib/logger";
 
 export interface UseStoryReturn {
   chatId?: string;
