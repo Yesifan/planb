@@ -2,6 +2,7 @@ import z from "zod";
 
 import Arbiter from "@/planb/agents/Arbiter.md";
 import Archivist from "@/planb/agents/Archivist.md";
+import Oracle from "@/planb/agents/Oracle.md";
 
 import { createAgent } from "./agent";
 import { provider } from "./provider";
@@ -21,5 +22,6 @@ export const ArbiterAgent = createAgent<Omit<typeof Tools, "createStory">>(
   Arbiter,
 );
 export const ArchivistAgent = createAgent("Archivist", provider, Archivist);
+export const OracleAgent = createAgent("Oracle", provider, Oracle);
 
 export { primaryModel, provider, secondaryModel } from "./provider";
