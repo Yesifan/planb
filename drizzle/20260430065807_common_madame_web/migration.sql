@@ -68,7 +68,7 @@ CREATE TABLE `story` (
 CREATE TABLE `toolcall` (
 	`id` text PRIMARY KEY,
 	`message_id` text NOT NULL,
-	`tool_calls` text,
+	`tool_calls` text NOT NULL,
 	`input` text NOT NULL,
 	`result` text,
 	`created_at` integer NOT NULL

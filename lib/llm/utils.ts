@@ -1,9 +1,4 @@
-import {
-  AssistantContent,
-  ModelMessage,
-  ToolCallPart,
-  ToolResultPart,
-} from "ai";
+import { ModelMessage, ToolCallPart, ToolResultPart } from "ai";
 
 import { MessageWithToolCall, NewMessage } from "@/lib/db/schema";
 
@@ -40,7 +35,7 @@ export function toModelMessage(
   messages: Array<MessageWithToolCall | NewMessage>,
 ) {
   return messages.reduce<ModelMessage[]>((acc, message) => {
-    if ("toolCalls" in message) {
+    if ("toolCalls" in message && message.toolCalls?.length > 0) {
       const toolCallParts: ToolCallPart[] = [];
       const toolResultParts: ToolResultPart[] = [];
       message.toolCalls?.forEach((toolCall) => {
@@ -73,7 +68,8 @@ export function toModelMessage(
           content: toolResultParts,
         });
       }
-    } else {
+    }
+    if (message.text.trim().length > 0) {
       acc.push({
         role: message.role,
         content: message.text,

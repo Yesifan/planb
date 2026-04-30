@@ -1,6 +1,12 @@
 "use client";
 import { readStreamableValue, StreamableValue } from "@ai-sdk/rsc";
-import { isToolUIPart, parsePartialJson, TextUIPart, UIMessageChunk } from "ai";
+import {
+  isToolUIPart,
+  parsePartialJson,
+  ReasoningUIPart,
+  TextUIPart,
+  UIMessageChunk,
+} from "ai";
 
 import { MyUIMessage } from "./type";
 
@@ -29,6 +35,7 @@ export async function* streamToUIMessage(
   };
 
   const activeTextParts: Record<string, TextUIPart> = {};
+  const activeReasoningParts: Record<string, ReasoningUIPart> = {};
   const partialToolCalls: Record<string, PartialToolCall> = {};
 
   for await (const chunk of readStreamableValue(stream)) {
@@ -49,7 +56,7 @@ export async function* streamToUIMessage(
       case "text-delta": {
         const textPart = activeTextParts[chunk.id];
         if (textPart) {
-          textPart.text += chunk.delta;
+          textPart.text = chunk.delta;
         }
         break;
       }
@@ -63,6 +70,32 @@ export async function* streamToUIMessage(
         break;
       }
 
+      case "reasoning-start": {
+        const textPart: ReasoningUIPart = {
+          type: "reasoning",
+          text: "",
+          state: "streaming",
+        };
+        activeReasoningParts[chunk.id] = textPart;
+        message.parts.push(textPart);
+        break;
+      }
+      case "reasoning-delta": {
+        const textPart = activeReasoningParts[chunk.id];
+        if (textPart) {
+          textPart.text += chunk.delta;
+        }
+        break;
+      }
+
+      case "reasoning-end": {
+        const textPart = activeReasoningParts[chunk.id];
+        if (textPart) {
+          textPart.state = "done";
+          delete activeReasoningParts[chunk.id];
+        }
+        break;
+      }
       case "tool-input-start": {
         partialToolCalls[chunk.toolCallId] = {
           text: "",

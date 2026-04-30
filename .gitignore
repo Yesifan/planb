@@ -36,7 +36,7 @@ yarn-error.log*
 !.env.test
 !.env.example
 planb.yml
-planb.sqlite
+planb.sqlite*
 
 # vercel
 .vercel

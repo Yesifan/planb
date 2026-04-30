@@ -37,7 +37,7 @@ export default function RootLayout({
       lang="zh-CN"
       className={`${geistSans.variable} ${geistMono.variable} ${quicksand.variable} h-full antialiased`}
     >
-      <body className="flex h-screen w-screen flex-col">
+      <body className="flex h-screen w-full flex-col">
         <TooltipProvider>
           {children}
           <Toaster />

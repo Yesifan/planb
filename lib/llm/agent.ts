@@ -192,7 +192,7 @@ export class PlanbAgent<
     try {
       log.info(
         { prompt: options.prompt ?? options.messages },
-        "agent.stream.start",
+        "Agent stream input",
       );
 
       const loggingOnStepFinish: StreamTextOnStepFinishCallback<

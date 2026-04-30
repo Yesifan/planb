@@ -81,5 +81,5 @@ export type Story = typeof story.$inferSelect;
 export type ToolCall = typeof toolCall.$inferSelect;
 
 export type MessageWithToolCall = Message & {
-  toolCalls?: ToolCall[];
+  toolCalls: ToolCall[];
 };

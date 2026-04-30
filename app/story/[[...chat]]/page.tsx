@@ -44,6 +44,16 @@ export default function StoryPage() {
     sendMessage,
   } = useStoryContext();
 
+  const latestMessage = useMemo(
+    () => (messages.length > 0 ? messages[messages.length - 1] : undefined),
+    [messages],
+  );
+  const latestPart = useMemo(() => {
+    if (latestMessage?.parts && latestMessage.parts.length > 0) {
+      return latestMessage.parts[latestMessage.parts.length - 1];
+    }
+  }, [latestMessage]);
+
   const question = useMemo(() => {
     if (messages.length > 0) {
       const lastMessage = messages[messages.length - 1];
@@ -91,65 +101,61 @@ export default function StoryPage() {
   }
 
   return (
-    <div className="flex h-screen flex-col">
+    <div className="flex h-screen flex-col overflow-hidden">
       <StoryHeader chat={chat} />
-
       <StorySetting story={story} />
 
-      <div className="flex flex-1 flex-col">
-        <Conversation className="flex-1 p-6">
-          <ConversationContent>
-            {messages.map((message) => (
-              <Message from={message.role} key={message.id}>
-                <MessageContent>
-                  {message.parts.map((part, i) => {
-                    switch (part.type) {
-                      case "text":
-                        return (
-                          <MessageResponse key={`${message.id}-${i}`}>
-                            {part.text}
-                          </MessageResponse>
-                        );
-                      default:
-                        if (
-                          part.type.startsWith("tool-") &&
-                          !("output" in part && part.output) &&
-                          isStreaming
-                        ) {
-                          return (
-                            <Shimmer key={`${message.id}-${i}`}>
-                              思考中...
-                            </Shimmer>
-                          );
-                        }
-                        return null;
-                    }
-                  })}
-                </MessageContent>
-              </Message>
-            ))}
-          </ConversationContent>
-          <ConversationScrollButton />
-        </Conversation>
-        {question ? (
-          <StoryQuestion
-            question={question}
-            onSubmit={sendMessage}
-            className="my-4"
-          />
-        ) : (
-          <StoryPrompt
-            input={input}
-            onInputChange={setInput}
-            onSubmit={sendMessage}
-            disabled={isStreaming}
-            className="relative mx-auto w-full"
-          >
-            <StoryPromptInput placeholder="说点什么..." />
-            <StoryPromptSubmit status={isStreaming ? "streaming" : undefined} />
-          </StoryPrompt>
-        )}
-      </div>
+      <Conversation className="flex-1">
+        <ConversationContent className="w-full md:w-3xl">
+          {messages.map((message) => (
+            <Message from={message.role} key={message.id}>
+              <MessageContent>
+                {message.parts.map((part, i) => {
+                  switch (part.type) {
+                    case "reasoning":
+                      return (
+                        <MessageResponse key={`${message.id}-${i}`}>
+                          {part.text}
+                        </MessageResponse>
+                      );
+                    case "text":
+                      return (
+                        <MessageResponse key={`${message.id}-${i}`}>
+                          {part.text}
+                        </MessageResponse>
+                      );
+                  }
+                })}
+              </MessageContent>
+            </Message>
+          ))}
+          {latestPart?.type === "dynamic-tool" ||
+          latestPart?.type.startsWith("tool-")
+            ? isStreaming && (
+                <Shimmer key={latestMessage?.id}>思考中...</Shimmer>
+              )
+            : undefined}
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
+      {question ? (
+        <StoryQuestion
+          question={question}
+          onSubmit={sendMessage}
+          className="my-4"
+        />
+      ) : (
+        <StoryPrompt
+          input={input}
+          onInputChange={setInput}
+          onSubmit={sendMessage}
+          disabled={isStreaming}
+          className="relative mx-auto w-full"
+        >
+          <StoryPromptInput placeholder="说点什么..." />
+          <StoryPromptSubmit status={isStreaming ? "streaming" : undefined} />
+        </StoryPrompt>
+      )}
     </div>
   );
 }

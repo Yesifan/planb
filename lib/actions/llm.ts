@@ -183,7 +183,7 @@ export async function continueConversation(chatId: string, prompt: string) {
 
     for await (const chunk of uiMessages) {
       stream.update(chunk);
-      logger.debug(chunk, "continueConversation chunk");
+      // logger.debug(chunk, "continueConversation chunk");
     }
 
     stream.done();
