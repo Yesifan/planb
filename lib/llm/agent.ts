@@ -190,13 +190,10 @@ export class PlanbAgent<
     const log = logger.child({ traceId, agent: this.id });
 
     try {
-      const promptSummary =
-        typeof options.prompt === "string"
-          ? truncateContent(options.prompt)
-          : Array.isArray(options.prompt)
-            ? `[${options.prompt.length} messages]`
-            : "";
-      log.info({ prompt: promptSummary }, "agent.stream.start");
+      log.info(
+        { prompt: options.prompt ?? options.messages },
+        "agent.stream.start",
+      );
 
       const loggingOnStepFinish: StreamTextOnStepFinishCallback<
         TOOLS

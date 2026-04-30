@@ -56,18 +56,22 @@ export async function getChatMessages(chatId: string) {
     if (!chat) {
       return notFound();
     }
-    return await db.query.message.findMany({
-      with: {
-        toolCalls: true,
-      },
-      where: {
-        chatId: chatId,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-      limit: 10,
-    });
+    const messages = (
+      await db.query.message.findMany({
+        with: {
+          toolCalls: true,
+        },
+        where: {
+          chatId: chatId,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        limit: 10,
+      })
+    ).reverse();
+    logger.info(messages, "getChatMessages");
+    return messages;
   } catch (error) {
     logger.error({ chatId, error }, "getChatMessages.error");
     throw error;

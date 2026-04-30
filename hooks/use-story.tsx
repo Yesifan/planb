@@ -19,9 +19,10 @@ import {
   createStory as createStoryAction,
 } from "@/lib/actions/llm";
 import type { Chat, Story } from "@/lib/db/schema";
+import { streamToUIMessage } from "@/lib/llm/client";
 import { MyUIMessage } from "@/lib/llm/type";
-import { streamToUIMessage, toUIMessages } from "@/lib/llm/utils";
-
+import { toUIMessages } from "@/lib/llm/utils";
+import logger from "@/lib/logger";
 export interface UseStoryReturn {
   chatId?: string;
   chat?: Chat;
@@ -72,7 +73,9 @@ export function StoryProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     setError(undefined);
     getChatMessages(chatId).then((dbMessages) => {
-      setMessages(toUIMessages(dbMessages));
+      const uiMessage = toUIMessages(dbMessages);
+      logger.debug(uiMessage, "use story effect");
+      setMessages(uiMessage);
       setIsLoading(false);
     });
   }, [chatId]);
@@ -103,6 +106,8 @@ export function StoryProvider({ children }: { children: ReactNode }) {
     async (message: PromptInputMessage) => {
       if (!chatId) return;
 
+      logger.info({ chatId, message }, "sendMessage");
+
       const userMsg: MyUIMessage = {
         id: nanoid(),
         role: "user",
@@ -111,12 +116,10 @@ export function StoryProvider({ children }: { children: ReactNode }) {
 
       setMessages((prev) => [...prev, userMsg]);
 
-      const { content: newMessage } = await continueConversation(
+      const { messageId, content: newMessage } = await continueConversation(
         chatId,
         message.text,
       );
-
-      const messageId = nanoid();
 
       for await (const uiMessage of streamToUIMessage(messageId, newMessage)) {
         setMessages((prev) => {

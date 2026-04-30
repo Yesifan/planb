@@ -3,8 +3,8 @@ import { UIMessageChunk } from "ai";
 import { describe, expect, test } from "bun:test";
 import { nanoid } from "nanoid";
 
+import { streamToUIMessage } from "@/lib/llm/client";
 import { MyUIMessage } from "@/lib/llm/type";
-import { streamToUIMessage } from "@/lib/llm/utils";
 
 function createTestStream(
   chunks: UIMessageChunk[],

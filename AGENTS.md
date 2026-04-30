@@ -257,7 +257,8 @@ const contentParts = [{ type: "text", text: message.text }];
 - 计划文档中不要直接编写代码，只需要描述做什么，怎么做，目标和约束是什么
 - 执行文件前询问我是否新 checkout 出一个feature 分支，在 worktree 中开始新的工作
 - 如果使用 worktree 工作，一定要把这一点传递给每一个 subagent！
-- 不要主动执行会 git commit/reset/pull 等有副作用的 git 操作，
+- 在 worktree 中所有工作都完成后询问用户进行确认，确认后再提交 commit
+- 不要主动执行会 git commit/reset/pull 等有副作用的 git 操作
 
 ### Design for isolation and clarity:
 

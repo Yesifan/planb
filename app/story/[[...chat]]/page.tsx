@@ -121,7 +121,7 @@ export default function StoryPage() {
         {question ? (
           <StoryQuestion
             question={question}
-            onSubmit={async (message) => await sendMessage(message)}
+            onSubmit={sendMessage}
             className="my-4"
           />
         ) : (

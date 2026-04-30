@@ -18,10 +18,20 @@ export const createStory = tool({
     "接收用户提供的「故事来源」和「特异点」，生成一个逻辑自洽、细节丰满的异世界世界观",
   inputSchema: CreateStorySchema,
   async execute(input, { experimental_context }) {
-    const { db, chatId, traceId } = experimental_context as { db: DB; chatId: string; traceId?: string };
-    const log = logger.child({ traceId: traceId ?? "unknown", tool: "createStory" });
+    const { db, chatId, traceId } = experimental_context as {
+      db: DB;
+      chatId: string;
+      traceId?: string;
+    };
+    const log = logger.child({
+      traceId: traceId ?? "unknown",
+      tool: "createStory",
+    });
     try {
-      log.info({ input: truncateContent(JSON.stringify(input)) }, "tool.createStory.start");
+      log.info(
+        { input: truncateContent(JSON.stringify(input)) },
+        "tool.createStory.start",
+      );
       await db
         .update(chat)
         .set({

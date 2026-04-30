@@ -10,7 +10,14 @@ import { ArchivistAgent, OracleAgent } from "@/lib/llm";
 import logger from "@/lib/logger";
 
 import { getSessionWithRedirect } from "../auth/server";
-import { chat, message, story, toolCall } from "../db/schema";
+import {
+  chat,
+  message,
+  MessageWithToolCall,
+  NewMessage,
+  story,
+  toolCall,
+} from "../db/schema";
 import { saveMessageWithTool } from "../llm/db";
 import { toModelMessage } from "../llm/utils";
 import { getChatMessages } from "./db";
@@ -55,6 +62,9 @@ export async function createStory(source: string, singularity: string) {
       onFinish(event) {
         saveMessageWithTool(messageId, event, { db, chatId, traceId });
       },
+      onError({ error }) {
+        log.error({ error }, "action.continueConversation.error");
+      },
     });
 
     const uiMessages = result.toUIMessageStream();
@@ -75,67 +85,94 @@ export async function createStory(source: string, singularity: string) {
 
 // API 参考 https://ai-sdk.dev/cookbook/rsc/stream-text#stream-text
 export async function continueConversation(chatId: string, prompt: string) {
+  if (prompt.trim().length === 0) {
+    throw new Error("input is empty!");
+  }
   const traceId = nanoid();
   const log = logger.child({ traceId, action: "continueConversation" });
   const userMessageId = nanoid();
-  const assistantMessageId = nanoid();
+
   const now = new Date();
 
   log.info({ chatId, prompt }, "action.continueConversation.start");
 
   // Insert user message first
-  await db.insert(message).values({
-    id: userMessageId,
-    chatId,
-    role: "user",
-    text: prompt,
-    createdAt: now,
-  });
 
-  const recentMessages = await db.query.message.findMany({
-    where: { chatId, role: "assistant" },
-    orderBy: { createdAt: "desc" },
-    limit: 5,
-  });
-  const recentMessageId = recentMessages[0]?.id;
-
-  if (recentMessageId) {
-    const recentToolCalls = await db.query.toolCall.findMany({
-      where: { messageId: recentMessageId },
-    });
-    const recentQuestion = recentToolCalls.find(
+  const messages: Array<MessageWithToolCall | NewMessage> =
+    await getChatMessages(chatId);
+  const messagesLen = messages.length - 1;
+  const recentQuestion =
+    "toolCalls" in messages[messagesLen] &&
+    messages[messagesLen].toolCalls?.find(
       (tc) => tc.name === "createQuestion" && !tc.result,
     );
-    if (recentQuestion) {
-      await db
-        .update(toolCall)
-        .set({ result: prompt })
-        .where(eq(toolCall.id, recentQuestion.id));
-    }
+  if (recentQuestion) {
+    recentQuestion.result = prompt;
+    log.debug("insert createQuestion tool");
+  } else {
+    messages.push({
+      id: userMessageId,
+      chatId,
+      role: "user" as const,
+      text: prompt,
+      createdAt: now,
+    });
+    log.debug("input text prompt");
   }
 
-  // Determine agent based on story phase
-  const chatWithStory = await db.query.chat.findFirst({
-    with: { story: true },
-    where: { id: chatId },
+  const story = await db.query.story.findFirst({
+    where: { chatId: chatId },
+    columns: {
+      source: true,
+      singularity: true,
+      type: true,
+      describe: true,
+      worldview: true,
+    },
   });
-  const isSettingComplete =
-    chatWithStory?.story?.type &&
-    chatWithStory?.story?.describe &&
-    chatWithStory?.story?.worldview;
+
+  const isSettingComplete = story?.type && story?.describe && story?.worldview;
+
   const agent = isSettingComplete ? OracleAgent : ArchivistAgent;
 
-  const messages = await getChatMessages(chatId);
+  log.debug({ messages }, "continueConversation input");
+
   const modelMessages = toModelMessage(messages);
 
   const stream = createStreamableValue<UIMessageChunk>();
 
   (async () => {
     const result = await agent.stream({
-      messages: modelMessages,
+      prompt: [
+        {
+          role: "system",
+          content: JSON.stringify(story),
+        },
+        ...modelMessages,
+      ],
       experimental_context: { db, chatId: chatId, traceId },
-      onFinish(event) {
-        saveMessageWithTool(assistantMessageId, event, { db, chatId, traceId });
+      async onFinish(event) {
+        const assistantMessageId = nanoid();
+        await saveMessageWithTool(assistantMessageId, event, {
+          db,
+          chatId,
+          traceId,
+        });
+
+        if (recentQuestion) {
+          await db
+            .update(toolCall)
+            .set({ result: prompt })
+            .where(eq(toolCall.id, recentQuestion.id));
+        } else {
+          await db.insert(message).values({
+            id: userMessageId,
+            chatId,
+            role: "user" as const,
+            text: prompt,
+            createdAt: now,
+          });
+        }
       },
       onError({ error }) {
         log.error({ error }, "action.continueConversation.error");
@@ -146,6 +183,7 @@ export async function continueConversation(chatId: string, prompt: string) {
 
     for await (const chunk of uiMessages) {
       stream.update(chunk);
+      logger.debug(chunk, "continueConversation chunk");
     }
 
     stream.done();
@@ -153,6 +191,7 @@ export async function continueConversation(chatId: string, prompt: string) {
 
   return {
     id: chatId,
+    messageId: userMessageId,
     content: stream.value,
   };
 }

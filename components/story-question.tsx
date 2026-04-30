@@ -6,6 +6,7 @@ import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 
 import type { CreateQuestion } from "@/lib/llm/tool";
+import logger from "@/lib/logger";
 import { cn } from "@/lib/utils";
 
 import type { StoryInputProps } from "./story-prompt";
@@ -20,7 +21,7 @@ import {
 import { Textarea } from "./ui/textarea";
 
 interface StoryQuestionProps extends StoryInputProps<Record<string, string>> {
-  question: CreateQuestion;
+  question: Partial<CreateQuestion>;
 }
 
 export default function StoryQuestion({
@@ -29,9 +30,7 @@ export default function StoryQuestion({
   disabled = false,
   className,
 }: Omit<StoryQuestionProps, "input" | "onInputChange">) {
-  const schemaFields: Record<string, z.ZodString> = {};
-
-  question.questions.reduce(
+  const schemaFields = question.questions?.reduce(
     (acc, item) => {
       acc[item.question] = z.string().min(1, item.describe);
       return acc;
@@ -48,10 +47,10 @@ export default function StoryQuestion({
   const handleSubmit = async (values: z.infer<typeof schema>) => {
     if (disabled) return;
     const prompt = Object.keys(values).reduce((acc, key) => {
-      const questionItem = question.questions.find((q) => q.question === key);
-      acc += `<${key}><answer>${values[key]}<answer><desc>${questionItem?.describe || ""}</desc></${key}>`;
+      acc += `<${key}>${values[key]}</${key}>`;
       return acc;
     }, "");
+    logger.info({ values, prompt }, "story question submit");
     await onSubmit({ text: prompt, files: [] });
   };
 
@@ -76,7 +75,7 @@ export default function StoryQuestion({
 
       <form onSubmit={form.handleSubmit(handleSubmit)}>
         <FieldGroup>
-          {question.questions.map((q) => {
+          {question?.questions?.map((q) => {
             return (
               <Controller
                 key={q.question}

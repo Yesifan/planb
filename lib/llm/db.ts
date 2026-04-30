@@ -1,5 +1,4 @@
 import { OnFinishEvent } from "ai";
-import { nanoid } from "nanoid";
 
 import { message, toolCall as toolCallDB } from "@/lib/db/schema";
 import logger from "@/lib/logger";
