@@ -1,0 +1,204 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2025-01-01T00:00:00.000Z",
+  "title": "Design System: Planb",
+  "extensions": {
+    "colorMeta": {
+      "background": {
+        "role": "neutral",
+        "displayName": "Canvas White",
+        "canonical": "oklch(1 0.005 260)",
+        "tonalRamp": [
+          "oklch(0.145 0.005 260)",
+          "oklch(0.205 0.01 260)",
+          "oklch(0.269 0.008 260)",
+          "oklch(0.371 0.018 260)",
+          "oklch(0.556 0.01 260)",
+          "oklch(0.708 0.01 260)",
+          "oklch(0.922 0.006 260)",
+          "oklch(0.97 0.005 260)",
+          "oklch(1 0.005 260)"
+        ]
+      },
+      "foreground": {
+        "role": "neutral",
+        "displayName": "Near-Black Violet",
+        "canonical": "oklch(0.145 0.005 260)"
+      },
+      "primary": {
+        "role": "primary",
+        "displayName": "Near-Black Violet Tint",
+        "canonical": "oklch(0.205 0.01 260)"
+      },
+      "accent": {
+        "role": "accent",
+        "displayName": "Vibrant Violet",
+        "canonical": "oklch(0.58 0.22 260)"
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Soft Violet Gray",
+        "canonical": "oklch(0.97 0.004 260)"
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Subtle Border",
+        "canonical": "oklch(0.922 0.006 260)"
+      },
+      "destructive": {
+        "role": "semantic",
+        "displayName": "Destructive Red",
+        "canonical": "oklch(0.577 0.245 27.325)"
+      },
+      "ring": {
+        "role": "semantic",
+        "displayName": "Focus Ring Violet",
+        "canonical": "oklch(0.68 0.16 260)"
+      }
+    },
+    "typographyMeta": {
+      "body": {
+        "displayName": "Body Text",
+        "purpose": "Paragraph text, conversation messages, UI copy."
+      },
+      "heading": {
+        "displayName": "Headings",
+        "purpose": "Page titles, section headers, card titles."
+      },
+      "mono": {
+        "displayName": "Monospace",
+        "purpose": "Code, technical details, monospace content."
+      }
+    },
+    "shadows": [
+      {
+        "name": "subtle-lift",
+        "value": "0 2px 8px rgba(0,0,0,0.08)",
+        "purpose": "Elevated surfaces only — popovers, dropdowns, toasts."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-standard",
+        "value": "cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "Default easing for all state transitions."
+      },
+      {
+        "name": "duration-fast",
+        "value": "150ms",
+        "purpose": "Hover, focus, and small state changes."
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "High-contrast primary action button.",
+      "html": "<button class=\"ds-btn-primary\">Create Story</button>",
+      "css": ".ds-btn-primary { background: oklch(0.205 0.01 260); color: oklch(0.985 0.001 260); padding: 0.5rem 1rem; border-radius: 0.625rem; font-family: Geist, system-ui, sans-serif; font-size: 0.875rem; font-weight: 500; border: none; cursor: pointer; transition: opacity 150ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-btn-primary:hover { opacity: 0.8; } .ds-btn-primary:focus-visible { outline: 3px solid oklch(0.68 0.16 260 / 0.5); outline-offset: 2px; }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Secondary action with transparent background and border.",
+      "html": "<button class=\"ds-btn-outline\">Cancel</button>",
+      "css": ".ds-btn-outline { background: transparent; color: oklch(0.145 0.005 260); padding: 0.5rem 1rem; border-radius: 0.625rem; border: 1px solid oklch(0.922 0.006 260); font-family: Geist, system-ui, sans-serif; font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: background 150ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-btn-outline:hover { background: oklch(0.97 0.004 260); } .ds-btn-outline:focus-visible { outline: 3px solid oklch(0.68 0.16 260 / 0.5); outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "description": "Soft secondary action with muted background.",
+      "html": "<button class=\"ds-btn-secondary\">Save Draft</button>",
+      "css": ".ds-btn-secondary { background: oklch(0.97 0.005 260); color: oklch(0.205 0.01 260); padding: 0.5rem 1rem; border-radius: 0.625rem; border: none; font-family: Geist, system-ui, sans-serif; font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: opacity 150ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-btn-secondary:hover { opacity: 0.8; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "description": "Minimal button for navigation and tertiary actions.",
+      "html": "<button class=\"ds-btn-ghost\">View History</button>",
+      "css": ".ds-btn-ghost { background: transparent; color: oklch(0.145 0.005 260); padding: 0.5rem 1rem; border-radius: 0.625rem; border: none; font-family: Geist, system-ui, sans-serif; font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: background 150ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-btn-ghost:hover { background: oklch(0.97 0.004 260); }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Compact text input field.",
+      "html": "<input type=\"text\" class=\"ds-input\" placeholder=\"Enter your story title...\" />",
+      "css": ".ds-input { background: transparent; color: oklch(0.145 0.005 260); padding: 0.25rem 0.625rem; height: 32px; border-radius: 0.625rem; border: 1px solid oklch(0.922 0.006 260); font-family: Geist, system-ui, sans-serif; font-size: 0.875rem; transition: border-color 150ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-input::placeholder { color: oklch(0.556 0.01 260); } .ds-input:focus-visible { outline: none; border-color: oklch(0.68 0.16 260); box-shadow: 0 0 0 3px oklch(0.68 0.16 260 / 0.5); }"
+    },
+    {
+      "name": "Card Container",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Content container with subtle ring border.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-header\"><h3 class=\"ds-card-title\">Story Settings</h3><p class=\"ds-card-description\">Configure your narrative preferences</p></div><div class=\"ds-card-content\">Card content goes here</div></div>",
+      "css": ".ds-card { background: oklch(1 0.005 260); color: oklch(0.145 0.005 260); padding: 1rem; border-radius: 0.875rem; box-shadow: 0 0 0 1px rgba(0,0,0,0.1); font-family: Geist, system-ui, sans-serif; display: flex; flex-direction: column; gap: 1rem; } .ds-card-header { display: flex; flex-direction: column; gap: 0.25rem; } .ds-card-title { font-family: Quicksand, Geist, system-ui, sans-serif; font-size: 1rem; font-weight: 500; line-height: 1.3; margin: 0; } .ds-card-description { font-size: 0.875rem; color: oklch(0.556 0.01 260); margin: 0; } .ds-card-content { font-size: 0.875rem; line-height: 1.5; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Quiet Canvas",
+    "overview": "A minimal, focused interface that puts story content and conversation front and center. The design is intentionally restrained with subtle purple-tinted neutrals and a single saturated accent color for moments of personality. The interface feels calm and trustworthy, with just enough playful detail to avoid feeling sterile.",
+    "keyCharacteristics": [
+      "Tinted neutral palette with a single purple/violet brand hue (260°)",
+      "Dual-theme support (light and dark) with seamless system preference adaptation",
+      "Subtle rounded corners with consistent scale",
+      "Generous whitespace that lets content breathe",
+      "Purposeful motion — state feedback only, no decorative animation",
+      "Clean typographic hierarchy with distinct voice for headings"
+    ],
+    "rules": [
+      {
+        "name": "The One Voice Rule",
+        "body": "The vibrant violet accent is used on ≤10% of any given screen. Its rarity is the point — it draws attention only to what matters.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tint Continuity Rule",
+        "body": "Every neutral color carries the same brand hue (260°). No grays, no off-blacks — every surface has a subtle violet undertone that ties the system together.",
+        "section": "colors"
+      },
+      {
+        "name": "The Dark Mode Symmetry Rule",
+        "body": "Dark mode is not an afterthought. Every color token has a direct dark-mode counterpart that maintains the same relative contrast and feeling. Switching modes should feel like turning down the lights, not entering a different app.",
+        "section": "colors"
+      },
+      {
+        "name": "The Readability First Rule",
+        "body": "Conversation text is the product. Body text must maintain comfortable line length (≤65ch), adequate line height (1.5), and AA+ contrast in both modes. Never sacrifice reading comfort for aesthetic effect.",
+        "section": "typography"
+      },
+      {
+        "name": "The No-Shadow-at-Rest Rule",
+        "body": "Buttons, cards, inputs, and all primary UI elements have no drop shadow in their default state. Shadows appear only as a response to state (hover, focus, elevation), and even then, they are subtle.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do tint every neutral toward the brand hue (260°). No pure grays anywhere.",
+      "Do use the vibrant violet accent sparingly — ≤10% of any screen.",
+      "Do maintain full light/dark mode parity for every token and component.",
+      "Do prefer rings over shadows for surface definition.",
+      "Do use Quicksand for headings, Geist for body text — the contrast is intentional.",
+      "Do cap conversation text line length at ~65ch for readability.",
+      "Do animate only state changes — hover, focus, transitions between views."
+    ],
+    "donts": [
+      "Don't use gradient text. Decorative, never meaningful.",
+      "Don't use glassmorphism effects. Blurred backgrounds add visual noise without value.",
+      "Don't add shadows to buttons or cards at rest. Keep surfaces flat and clean.",
+      "Don't introduce new colors outside the palette. The system works because it's constrained.",
+      "Don't use heavy border-radius on interactive elements. The lg scale for buttons, xl for cards is the maximum.",
+      "Don't add decorative animations that don't communicate state. If it doesn't tell the user something, remove it.",
+      "Don't create SaaS landing-page clichés: hero metrics, feature grids with icons, generic testimonials."
+    ]
+  }
+}
