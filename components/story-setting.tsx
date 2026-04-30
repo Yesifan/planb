@@ -1,3 +1,9 @@
+"use client";
+
+import { cjk } from "@streamdown/cjk";
+import { code } from "@streamdown/code";
+import { math } from "@streamdown/math";
+import { mermaid } from "@streamdown/mermaid";
 import {
   BookOpen,
   ChevronDown,
@@ -6,6 +12,7 @@ import {
   Sparkles,
   Tag,
 } from "lucide-react";
+import { Streamdown } from "streamdown";
 
 import { Story } from "@/lib/db/schema";
 
@@ -15,6 +22,9 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "./ui/collapsible";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+
+const streamdownPlugins = { cjk, code, math, mermaid };
 
 export default function StorySetting({ story }: { story?: Story }) {
   return (
@@ -33,57 +43,87 @@ export default function StorySetting({ story }: { story?: Story }) {
         <CollapsibleContent className="pt-3">
           {story ? (
             <div className="bg-muted/30 rounded-xl p-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <BookOpen className="text-accent mt-0.5 size-4" />
-                    <div>
-                      <div className="text-muted-foreground text-xs font-medium">
-                        故事来源
+              <Tabs defaultValue="basic">
+                <TabsList>
+                  <TabsTrigger value="basic">基本信息</TabsTrigger>
+                  <TabsTrigger value="worldview">世界观与描述</TabsTrigger>
+                </TabsList>
+                <TabsContent value="basic" className="pt-4">
+                  <div className="space-y-4">
+                    <div className="flex items-start gap-3">
+                      <BookOpen className="text-accent mt-0.5 size-4" />
+                      <div>
+                        <div className="text-muted-foreground text-xs font-medium">
+                          故事来源
+                        </div>
+                        <div className="text-sm">{story.source}</div>
                       </div>
-                      <div className="text-sm">{story.source}</div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <Sparkles className="text-accent mt-0.5 size-4" />
+                      <div>
+                        <div className="text-muted-foreground text-xs font-medium">
+                          特异点
+                        </div>
+                        <div className="text-sm">{story.singularity}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <Tag className="text-accent mt-0.5 size-4" />
+                      <div>
+                        <div className="text-muted-foreground text-xs font-medium">
+                          类型
+                        </div>
+                        <div className="text-sm">{story.type}</div>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-start gap-3">
-                    <Sparkles className="text-accent mt-0.5 size-4" />
-                    <div>
-                      <div className="text-muted-foreground text-xs font-medium">
-                        特异点
+                </TabsContent>
+                <TabsContent value="worldview" className="pt-4">
+                  <div className="space-y-6">
+                    <div className="flex items-start gap-3">
+                      <Globe className="text-accent mt-0.5 size-4" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-muted-foreground text-xs font-medium mb-1">
+                          世界观
+                        </div>
+                        {story.worldview ? (
+                          <Streamdown
+                            plugins={streamdownPlugins}
+                            className="[&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+                          >
+                            {story.worldview}
+                          </Streamdown>
+                        ) : (
+                          <div className="text-muted-foreground text-sm">
+                            暂无世界观设定
+                          </div>
+                        )}
                       </div>
-                      <div className="text-sm">{story.singularity}</div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <ScrollText className="text-accent mt-0.5 size-4" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-muted-foreground text-xs font-medium mb-1">
+                          描述
+                        </div>
+                        {story.describe ? (
+                          <Streamdown
+                            plugins={streamdownPlugins}
+                            className="[&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+                          >
+                            {story.describe}
+                          </Streamdown>
+                        ) : (
+                          <div className="text-muted-foreground text-sm">
+                            暂无描述
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-start gap-3">
-                    <Tag className="text-accent mt-0.5 size-4" />
-                    <div>
-                      <div className="text-muted-foreground text-xs font-medium">
-                        类型
-                      </div>
-                      <div className="text-sm">{story.type}</div>
-                    </div>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <Globe className="text-accent mt-0.5 size-4" />
-                    <div>
-                      <div className="text-muted-foreground text-xs font-medium">
-                        世界观
-                      </div>
-                      <div className="text-sm">{story.worldview}</div>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <ScrollText className="text-accent mt-0.5 size-4" />
-                    <div>
-                      <div className="text-muted-foreground text-xs font-medium">
-                        描述
-                      </div>
-                      <div className="text-sm">{story.describe}</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                </TabsContent>
+              </Tabs>
             </div>
           ) : (
             <div className="bg-muted/10 text-muted-foreground rounded-xl p-4 text-center text-sm">

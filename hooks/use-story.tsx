@@ -29,6 +29,7 @@ export interface UseStoryReturn {
   story?: Story;
   messages: MyUIMessage[];
   isLoading: boolean;
+  isStreaming: boolean;
   error?: string;
   createStory: (source: string, singularity: string) => Promise<string>;
   sendMessage: (message: PromptInputMessage) => Promise<void>;
@@ -46,6 +47,7 @@ export function StoryProvider({ children }: { children: ReactNode }) {
   const [chat, setChat] = useState<Chat | undefined>(undefined);
   const [story, setStory] = useState<Story | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
 
   useEffect(() => {
@@ -82,22 +84,27 @@ export function StoryProvider({ children }: { children: ReactNode }) {
 
   const createStory: UseStoryReturn["createStory"] = useCallback(
     async (source, singularity) => {
-      const {
-        id,
-        messageId,
-        content: newMessage,
-      } = await createStoryAction(source, singularity);
+      setIsStreaming(true);
+      try {
+        const {
+          id,
+          messageId,
+          content: newMessage,
+        } = await createStoryAction(source, singularity);
 
-      for await (const uiMessage of streamToUIMessage(messageId, newMessage)) {
-        setMessages((prev) => {
-          const without = prev.filter((m) => m.id !== messageId);
-          return [...without, uiMessage];
-        });
+        for await (const uiMessage of streamToUIMessage(messageId, newMessage)) {
+          setMessages((prev) => {
+            const without = prev.filter((m) => m.id !== messageId);
+            return [...without, uiMessage];
+          });
+        }
+
+        skipFetchMessage.current = id;
+        router.push(`/story/${id}`);
+        return id;
+      } finally {
+        setIsStreaming(false);
       }
-
-      skipFetchMessage.current = id;
-      router.push(`/story/${id}`);
-      return id;
     },
     [router],
   );
@@ -116,22 +123,27 @@ export function StoryProvider({ children }: { children: ReactNode }) {
 
       setMessages((prev) => [...prev, userMsg]);
 
-      const { messageId, content: newMessage } = await continueConversation(
-        chatId,
-        message.text,
-      );
+      setIsStreaming(true);
+      try {
+        const { messageId, content: newMessage } = await continueConversation(
+          chatId,
+          message.text,
+        );
 
-      for await (const uiMessage of streamToUIMessage(messageId, newMessage)) {
-        setMessages((prev) => {
-          const without = prev.filter((m) => m.id !== messageId);
-          return [...without, uiMessage];
-        });
-      }
+        for await (const uiMessage of streamToUIMessage(messageId, newMessage)) {
+          setMessages((prev) => {
+            const without = prev.filter((m) => m.id !== messageId);
+            return [...without, uiMessage];
+          });
+        }
 
-      // Refresh story state after stream completes (story settings may have been updated)
-      const updatedChat = await getChatWithStory(chatId);
-      if (updatedChat.story) {
-        setStory(updatedChat.story);
+        // Refresh story state after stream completes (story settings may have been updated)
+        const updatedChat = await getChatWithStory(chatId);
+        if (updatedChat.story) {
+          setStory(updatedChat.story);
+        }
+      } finally {
+        setIsStreaming(false);
       }
     },
     [chatId],
@@ -145,6 +157,7 @@ export function StoryProvider({ children }: { children: ReactNode }) {
         chat,
         story,
         isLoading,
+        isStreaming,
         error,
         createStory,
         sendMessage,

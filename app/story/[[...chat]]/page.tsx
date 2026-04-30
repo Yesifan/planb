@@ -13,6 +13,7 @@ import {
   MessageContent,
   MessageResponse,
 } from "@/components/ai-elements/message";
+import { Shimmer } from "@/components/ai-elements/shimmer";
 import CreateStoryForm, {
   createStoryFormSchema,
 } from "@/components/create-story-form";
@@ -37,6 +38,7 @@ export default function StoryPage() {
     chat,
     story,
     isLoading,
+    isStreaming,
     error,
     createStory,
     sendMessage,
@@ -109,6 +111,16 @@ export default function StoryPage() {
                           </MessageResponse>
                         );
                       default:
+                        if (
+                          part.type.startsWith("tool-") &&
+                          !("output" in part && part.output)
+                        ) {
+                          return (
+                            <Shimmer key={`${message.id}-${i}`}>
+                              思考中...
+                            </Shimmer>
+                          );
+                        }
                         return null;
                     }
                   })}
@@ -129,10 +141,11 @@ export default function StoryPage() {
             input={input}
             onInputChange={setInput}
             onSubmit={sendMessage}
+            disabled={isStreaming}
             className="relative mx-auto w-full"
           >
             <StoryPromptInput placeholder="说点什么..." />
-            <StoryPromptSubmit />
+            <StoryPromptSubmit status={isStreaming ? "streaming" : undefined} />
           </StoryPrompt>
         )}
       </div>
