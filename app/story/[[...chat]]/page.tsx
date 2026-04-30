@@ -113,7 +113,8 @@ export default function StoryPage() {
                       default:
                         if (
                           part.type.startsWith("tool-") &&
-                          !("output" in part && part.output)
+                          !("output" in part && part.output) &&
+                          isStreaming
                         ) {
                           return (
                             <Shimmer key={`${message.id}-${i}`}>

@@ -4,14 +4,7 @@ import { cjk } from "@streamdown/cjk";
 import { code } from "@streamdown/code";
 import { math } from "@streamdown/math";
 import { mermaid } from "@streamdown/mermaid";
-import {
-  BookOpen,
-  ChevronDown,
-  Globe,
-  ScrollText,
-  Sparkles,
-  Tag,
-} from "lucide-react";
+import { BookOpen, ChevronDown, Sparkles, Tag } from "lucide-react";
 import { Streamdown } from "streamdown";
 
 import { Story } from "@/lib/db/schema";
@@ -46,7 +39,8 @@ export default function StorySetting({ story }: { story?: Story }) {
               <Tabs defaultValue="basic">
                 <TabsList>
                   <TabsTrigger value="basic">基本信息</TabsTrigger>
-                  <TabsTrigger value="worldview">世界观与描述</TabsTrigger>
+                  <TabsTrigger value="worldview">世界观</TabsTrigger>
+                  <TabsTrigger value="describe">世界背景</TabsTrigger>
                 </TabsList>
                 <TabsContent value="basic" className="pt-4">
                   <div className="space-y-4">
@@ -80,48 +74,32 @@ export default function StorySetting({ story }: { story?: Story }) {
                   </div>
                 </TabsContent>
                 <TabsContent value="worldview" className="pt-4">
-                  <div className="space-y-6">
-                    <div className="flex items-start gap-3">
-                      <Globe className="text-accent mt-0.5 size-4" />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-muted-foreground text-xs font-medium mb-1">
-                          世界观
-                        </div>
-                        {story.worldview ? (
-                          <Streamdown
-                            plugins={streamdownPlugins}
-                            className="[&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
-                          >
-                            {story.worldview}
-                          </Streamdown>
-                        ) : (
-                          <div className="text-muted-foreground text-sm">
-                            暂无世界观设定
-                          </div>
-                        )}
-                      </div>
+                  {story.worldview ? (
+                    <Streamdown
+                      plugins={streamdownPlugins}
+                      className="[&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+                    >
+                      {story.worldview}
+                    </Streamdown>
+                  ) : (
+                    <div className="text-muted-foreground text-sm">
+                      暂无世界观设定
                     </div>
-                    <div className="flex items-start gap-3">
-                      <ScrollText className="text-accent mt-0.5 size-4" />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-muted-foreground text-xs font-medium mb-1">
-                          描述
-                        </div>
-                        {story.describe ? (
-                          <Streamdown
-                            plugins={streamdownPlugins}
-                            className="[&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
-                          >
-                            {story.describe}
-                          </Streamdown>
-                        ) : (
-                          <div className="text-muted-foreground text-sm">
-                            暂无描述
-                          </div>
-                        )}
-                      </div>
+                  )}
+                </TabsContent>
+                <TabsContent value="describe" className="pt-4">
+                  {story.describe ? (
+                    <Streamdown
+                      plugins={streamdownPlugins}
+                      className="[&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+                    >
+                      {story.describe}
+                    </Streamdown>
+                  ) : (
+                    <div className="text-muted-foreground text-sm">
+                      暂无描述
                     </div>
-                  </div>
+                  )}
                 </TabsContent>
               </Tabs>
             </div>

@@ -42,7 +42,7 @@ export async function getChatWithStory(chatId: string) {
   }
 }
 
-export async function getChatMessages(chatId: string) {
+export async function getChatMessages(chatId: string, limit = 100, offset = 0) {
   const start = performance.now();
   const session = await getSessionWithRedirect();
 
@@ -67,7 +67,8 @@ export async function getChatMessages(chatId: string) {
         orderBy: {
           createdAt: "desc",
         },
-        limit: 10,
+        offset: offset,
+        limit: limit,
       })
     ).reverse();
     logger.info(messages, "getChatMessages");
