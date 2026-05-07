@@ -1,5 +1,5 @@
+import { createStreamableValue } from "@ai-sdk/rsc";
 import {
-  GenerateTextOnFinishCallback,
   GenerateTextOnStepFinishCallback,
   GenerateTextResult,
   Output,
@@ -7,14 +7,12 @@ import {
   StepResult,
   StreamTextOnStepFinishCallback,
   StreamTextResult,
-  ToolLoopAgentOnFinishCallback,
   ToolLoopAgentSettings,
   ToolSet,
+  UIMessageChunk,
 } from "ai";
 import { generateText, hasToolCall, stepCountIs, streamText } from "ai";
-import { nanoid } from "nanoid";
 
-import { message, toolCall as toolCallDB } from "../db/schema";
 import logger, { truncateContent } from "../logger";
 import { primaryModel, secondaryModel } from "./provider";
 import Tools from "./tool";
@@ -216,6 +214,28 @@ export class PlanbAgent<
       log.error({ error }, "agent.stream.error");
       throw error;
     }
+  }
+
+  async uiStream(
+    stream: ReturnType<typeof createStreamableValue<UIMessageChunk>>,
+    options: Omit<Parameters<typeof streamText<TOOLS, OUTPUT>>[0], "model">,
+    callback?: (
+      stream: ReturnType<typeof createStreamableValue<UIMessageChunk>>,
+    ) => void,
+  ) {
+    (async () => {
+      const result = await this.stream(options);
+
+      const uiMessages = result.toUIMessageStream();
+
+      for await (const chunk of uiMessages) {
+        stream.update(chunk);
+      }
+
+      if (callback) {
+        callback(stream);
+      }
+    })();
   }
 }
 

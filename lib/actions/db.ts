@@ -71,7 +71,7 @@ export async function getChatMessages(chatId: string, limit = 100, offset = 0) {
         limit: limit,
       })
     ).reverse();
-    logger.info(messages, "getChatMessages");
+    // logger.info(messages, "getChatMessages.messages");
     return messages;
   } catch (error) {
     logger.error({ chatId, error }, "getChatMessages.error");

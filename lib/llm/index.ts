@@ -3,6 +3,7 @@ import z from "zod";
 import Arbiter from "@/planb/agents/Arbiter.md";
 import Archivist from "@/planb/agents/Archivist.md";
 import Oracle from "@/planb/agents/Oracle.md";
+import Weaver from "@/planb/agents/Weaver.md";
 
 import { createAgent } from "./agent";
 import { provider } from "./provider";
@@ -16,12 +17,13 @@ export const ArchivistOutputSchema = z.object({
   worldview: z.string().min(1, "Worldview cannot be empty"),
 });
 
-export const ArbiterAgent = createAgent<Omit<typeof Tools, "createStory">>(
+export const arbiter = createAgent<Omit<typeof Tools, "createStory">>(
   "Arbiter",
   provider,
   Arbiter,
 );
-export const ArchivistAgent = createAgent("Archivist", provider, Archivist);
-export const OracleAgent = createAgent("Oracle", provider, Oracle);
+export const archivist = createAgent("Archivist", provider, Archivist);
+export const oracle = createAgent("Oracle", provider, Oracle);
+export const weaver = createAgent("Weaver", provider, Weaver);
 
 export { primaryModel, provider, secondaryModel } from "./provider";

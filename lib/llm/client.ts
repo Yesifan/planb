@@ -56,7 +56,7 @@ export async function* streamToUIMessage(
       case "text-delta": {
         const textPart = activeTextParts[chunk.id];
         if (textPart) {
-          textPart.text = chunk.delta;
+          textPart.text += chunk.delta;
         }
         break;
       }

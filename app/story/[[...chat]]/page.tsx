@@ -55,18 +55,14 @@ export default function StoryPage() {
   }, [latestMessage]);
 
   const question = useMemo(() => {
-    if (messages.length > 0) {
-      const lastMessage = messages[messages.length - 1];
-
-      if (lastMessage.parts.length > 0) {
-        const lastPart = lastMessage.parts[lastMessage.parts.length - 1];
-        if (lastPart.type === "tool-createQuestion" && !lastPart.output) {
-          return lastPart.input as CreateQuestion;
-        }
-      }
-      return undefined;
+    if (
+      latestPart &&
+      latestPart.type === "tool-createQuestion" &&
+      !latestPart.output
+    ) {
+      return latestPart.input as CreateQuestion;
     }
-  }, [messages]);
+  }, [latestPart]);
 
   const onCreate = async (values: z.infer<typeof createStoryFormSchema>) => {
     await createStory(values.source, values.singularity);
@@ -112,12 +108,6 @@ export default function StoryPage() {
               <MessageContent>
                 {message.parts.map((part, i) => {
                   switch (part.type) {
-                    case "reasoning":
-                      return (
-                        <MessageResponse key={`${message.id}-${i}`}>
-                          {part.text}
-                        </MessageResponse>
-                      );
                     case "text":
                       return (
                         <MessageResponse key={`${message.id}-${i}`}>
@@ -129,12 +119,7 @@ export default function StoryPage() {
               </MessageContent>
             </Message>
           ))}
-          {latestPart?.type === "dynamic-tool" ||
-          latestPart?.type.startsWith("tool-")
-            ? isStreaming && (
-                <Shimmer key={latestMessage?.id}>思考中...</Shimmer>
-              )
-            : undefined}
+          {isStreaming && <Shimmer key={latestMessage?.id}>思考中...</Shimmer>}
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>

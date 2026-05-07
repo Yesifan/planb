@@ -8,9 +8,9 @@ import logger, { truncateContent } from "@/lib/logger";
 
 export const CreateStorySchema = z.object({
   title: z.string().min(1),
-  type: z.string().min(1, "Story type cannot be empty"),
-  describe: z.string().min(1, "Story description cannot be empty"),
-  worldview: z.string().min(1, "Worldview cannot be empty"),
+  type: z.string().min(1, "Story type"),
+  describe: z.string().min(1, "世界详情，需要描述特异点，主角以及其他重要设定"),
+  worldview: z.string().min(1, "世界观，完整的描述故事中的世界"),
 });
 
 export const createStory = tool({
@@ -30,7 +30,7 @@ export const createStory = tool({
     try {
       log.info(
         { input: truncateContent(JSON.stringify(input)) },
-        "tool.createStory.start",
+        "Tool CreateStory",
       );
       await db
         .update(chat)
