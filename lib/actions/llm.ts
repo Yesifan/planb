@@ -1,12 +1,7 @@
 "use server";
 
 import { createStreamableValue } from "@ai-sdk/rsc";
-import type {
-  GenerateTextOnFinishCallback,
-  ModelMessage,
-  StreamTextResult,
-  UIMessageChunk,
-} from "ai";
+import type { ModelMessage, OnFinishEvent, ToolSet, UIMessageChunk } from "ai";
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 
@@ -14,20 +9,24 @@ import { getSessionWithRedirect } from "@/lib/auth/server";
 import { db } from "@/lib/db";
 import {
   chat,
+  history,
   message,
   MessageWithToolCall,
   NewMessage,
   story,
   toolCall,
 } from "@/lib/db/schema";
-import { archivist, oracle, weaver } from "@/lib/llm";
+import { arbiter, archivist, oracle, sentinel, weaver } from "@/lib/llm";
 import { saveMessageWithTool } from "@/lib/llm/db";
-import Tools from "@/lib/llm/tool";
-import { toModelMessage } from "@/lib/llm/utils";
+import {
+  toHistoryModelMessage,
+  toModelMessage,
+  toStoryModelMessage,
+} from "@/lib/llm/utils";
 import logger from "@/lib/logger";
 
 import { ToolContext } from "../llm/type";
-import { getChatMessages } from "./db";
+import { getChatHistory, getLastestChatMessage } from "./db";
 
 export async function createStory(source: string, singularity: string) {
   const traceId = nanoid();
@@ -44,7 +43,6 @@ export async function createStory(source: string, singularity: string) {
   const messageId = nanoid();
   const now = new Date();
 
-  // First insert into chat table
   await db.insert(chat).values({
     id: chatId,
     userId: session.user.id,
@@ -67,10 +65,14 @@ export async function createStory(source: string, singularity: string) {
       prompt,
       experimental_context: { db, chatId, traceId },
       onFinish(event) {
-        saveMessageWithTool(messageId, event, { db, chatId, traceId });
+        saveMessageWithTool(
+          messageId,
+          event as unknown as OnFinishEvent<ToolSet>,
+          { db, chatId, traceId },
+        );
       },
       onError({ error }) {
-        log.error({ error }, "action.continueConversation.error");
+        log.error({ error }, "action.createStory.error");
       },
     });
 
@@ -94,7 +96,7 @@ async function continueCreateStory(
   chatId: string,
   messages: ModelMessage[],
   experimental_context: ToolContext,
-  onFinish: GenerateTextOnFinishCallback<typeof Tools>,
+  onFinish: (event: OnFinishEvent<ToolSet>) => Promise<void>,
 ) {
   const traceId = nanoid();
   const log = logger.child({ traceId, action: "continueCreateStory" });
@@ -107,53 +109,122 @@ async function continueCreateStory(
   log.debug(
     {
       text: archivistResult.text,
-      steps: archivistResult.steps,
       messages: archivistResult.response.messages,
     },
     "archivist output",
   );
 
-  const result = await weaver.stream({
+  return await weaver.stream({
     prompt: [
       ...archivistResult.response.messages,
       {
-        role: "user",
-        content: "请根据故事背景，叙述故事的开端",
+        role: "system",
+        content:
+          "根据故事世界观和背景生成故事开端。 必须详细描写特异点的前因以及特异点是如何发生的。在描述的结尾自然的留一个扣子，让用户和这个世界进行交互进行交互！",
       },
     ],
     experimental_context,
-    onFinish(options) {
-      onFinish(options);
-    },
+    onFinish,
   });
-
-  return result;
 }
 
+/**
+ * 主流程：Sentinel → Oracle → Arbiter(审查选优) → Weaver
+ *
+ * 1. Sentinel 审查用户输入 — 不合理则 rejectInput，合理则转化为历史年表
+ * 2. Oracle 根据审查后的输入生成分支剧情（内部通过 dice/activateSystem tools 调度骰子和系统）
+ * 3. Arbiter 审查 Oracle 分支 — 逻辑不通则打回（暂不实现循环），通过则打分选优输出历史年表
+ * 4. Weaver 将审核通过的历史年表扩写为小说正文
+ */
 async function continueStory(
   chatId: string,
   messages: ModelMessage[],
   experimental_context: ToolContext,
-  onFinish: GenerateTextOnFinishCallback<typeof Tools>,
+  onFinish: (event: OnFinishEvent<ToolSet>) => Promise<void>,
 ) {
   const log = logger.child({
     traceId: experimental_context.traceId,
-    action: "continueCreateStory",
+    action: "continueStory",
   });
 
-  const result = await oracle.stream({
+  // Step 1: Sentinel 审查用户输入
+  const sentinelInputResult = await sentinel.stream({
     prompt: messages,
     experimental_context,
+  });
+
+  // 检查是否被 rejectInput tool 拒绝
+  const rejected = (await sentinelInputResult.steps).some((step) =>
+    step.toolCalls.some((tc) => tc.toolName === "rejectInput"),
+  );
+
+  if (rejected) {
+    log.debug(
+      { text: await sentinelInputResult.steps },
+      "Sentinel Review Rejected",
+    );
+
+    return sentinelInputResult;
+  }
+
+  // Step 2: Oracle 根据审查后的输入生成分支
+  const oraclePrompt = [
+    ...messages,
+    {
+      role: "user",
+      content: await sentinelInputResult.text,
+    } as ModelMessage,
+  ];
+
+  const oracleResult = await oracle.generate({
+    prompt: oraclePrompt,
+    experimental_context,
+  });
+
+  log.debug({ text: oracleResult.text }, "Oracle Branches");
+
+  // Step 3: Arbiter 审查 Oracle 分支
+  const arbiterBranchResult = await arbiter.stream({
+    prompt: [
+      ...oraclePrompt,
+      {
+        role: "assistant",
+        content: `请审查以下 Oracle 生成的剧情分支: \n\n${oracleResult.text}`,
+      },
+    ],
+    experimental_context,
+  });
+
+  const arbiterText = await arbiterBranchResult.text;
+
+  log.debug({ arbiterText }, "Arbiter Review");
+
+  // Step 4: Weaver 将审核通过的历史年表扩写为小说正文
+  const result = await weaver.stream({
+    prompt: [
+      ...oraclePrompt,
+      {
+        role: "assistant",
+        content: arbiterText,
+      },
+    ],
+    experimental_context,
     onFinish(options) {
-      onFinish(options);
-      log.debug({ text: options.text }, "output");
+      const now = new Date();
+      const { db } = experimental_context;
+      db.insert(history).values({
+        id: nanoid(),
+        chatId: chatId,
+        content: arbiterText,
+        createdAt: now,
+      });
+      onFinish(options as unknown as OnFinishEvent<ToolSet>);
     },
   });
 
   return result;
 }
 
-// API 参考 https://ai-sdk.dev/cookbook/rsc/stream-text#stream-text
 export async function continueConversation(chatId: string, prompt: string) {
   if (prompt.trim().length === 0) {
     throw new Error("input is empty!");
@@ -166,30 +237,32 @@ export async function continueConversation(chatId: string, prompt: string) {
 
   log.info({ chatId, prompt }, "action.continueConversation.start");
 
-  // Insert user message first
+  const history = await getChatHistory(chatId);
+  const storyData = await db.query.story.findFirst({
+    where: { chatId: chatId },
+  });
+  let latestMessage: MessageWithToolCall | NewMessage | undefined =
+    await getLastestChatMessage(chatId);
 
-  const messages: Array<MessageWithToolCall | NewMessage> =
-    await getChatMessages(chatId);
-  const messagesLen = messages.length - 1;
   const recentQuestion =
-    "toolCalls" in messages[messagesLen] &&
-    messages[messagesLen].toolCalls?.find(
+    latestMessage &&
+    "toolCalls" in latestMessage &&
+    latestMessage.toolCalls?.find(
       (tc) => tc.name === "createQuestion" && !tc.result,
     );
 
-  // 根据最后一条信息的类型，把 prompt 合并到正确的消息类型里
   if (recentQuestion) {
     recentQuestion.result = prompt;
   } else {
-    messages.push({
+    latestMessage = {
       id: userMessageId,
       chatId,
       role: "user" as const,
       text: prompt,
       createdAt: now,
-    });
+    };
   }
-  // save input
+
   if (recentQuestion) {
     await db
       .update(toolCall)
@@ -205,31 +278,25 @@ export async function continueConversation(chatId: string, prompt: string) {
     });
   }
 
-  const story = await db.query.story.findFirst({
-    where: { chatId: chatId },
-    columns: {
-      source: true,
-      singularity: true,
-      type: true,
-      describe: true,
-      worldview: true,
-    },
-  });
+  const isSettingComplete =
+    storyData?.type && storyData?.describe && storyData?.worldview;
 
-  const isSettingComplete = story?.type && story?.describe && story?.worldview;
+  log.debug({ chatId, prompt, messages: latestMessage }, " input");
 
-  log.debug({ chatId, prompt, messages }, " input");
-
-  const modelMessages = toModelMessage(messages);
+  const storyMessage = toStoryModelMessage(storyData);
+  const hsitoryMessage = toHistoryModelMessage(history);
+  const inputMessages = toModelMessage(latestMessage);
+  const modelMessage = hsitoryMessage
+    ? [storyMessage, hsitoryMessage, ...inputMessages]
+    : inputMessages;
 
   const stream = createStreamableValue<UIMessageChunk>();
 
   (async () => {
     const experimental_context = { db: db, chatId: chatId, traceId: traceId };
-    const onFinish: GenerateTextOnFinishCallback<typeof Tools> = async (
-      event,
+    const onFinish = async (
+      event: Parameters<typeof saveMessageWithTool>[1],
     ) => {
-      // save result
       const assistantMessageId = nanoid();
       await saveMessageWithTool(assistantMessageId, event, {
         db,
@@ -238,28 +305,24 @@ export async function continueConversation(chatId: string, prompt: string) {
       });
     };
 
-    let result: StreamTextResult<typeof Tools, never> | undefined = undefined;
-    if (isSettingComplete) {
-      result = await continueStory(
-        chatId,
-        modelMessages,
-        experimental_context,
-        onFinish,
-      );
-    } else {
-      result = await continueCreateStory(
-        chatId,
-        modelMessages,
-        experimental_context,
-        onFinish,
-      );
-    }
+    const result = isSettingComplete
+      ? await continueStory(
+          chatId,
+          modelMessage,
+          experimental_context,
+          onFinish,
+        )
+      : await continueCreateStory(
+          chatId,
+          modelMessage,
+          experimental_context,
+          onFinish,
+        );
 
     const uiMessages = result.toUIMessageStream();
 
     for await (const chunk of uiMessages) {
       stream.update(chunk);
-      // logger.debug(chunk, "continueConversation chunk");
     }
 
     stream.done();
@@ -271,5 +334,3 @@ export async function continueConversation(chatId: string, prompt: string) {
     content: stream.value,
   };
 }
-
-// RSC 多步骤 https://ai-sdk.dev/docs/ai-sdk-rsc/multistep-interfaces

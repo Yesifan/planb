@@ -45,18 +45,6 @@ export function createChildLogger(
 }
 
 /**
- * Truncate long content for logging purposes
- */
-export function truncateContent(content: string, maxLength = 10000): string {
-  if (content.length <= maxLength) {
-    return content;
-  }
-  const truncated = content.slice(0, maxLength);
-  const truncatedChars = content.length - maxLength;
-  return `${truncated}[...truncated ${truncatedChars} chars]`;
-}
-
-/**
  * Default application logger instance
  */
 const logger = createLogger("app");

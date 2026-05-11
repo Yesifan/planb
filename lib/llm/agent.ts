@@ -1,4 +1,3 @@
-import { createStreamableValue } from "@ai-sdk/rsc";
 import {
   GenerateTextOnStepFinishCallback,
   GenerateTextResult,
@@ -9,18 +8,19 @@ import {
   StreamTextResult,
   ToolLoopAgentSettings,
   ToolSet,
-  UIMessageChunk,
 } from "ai";
 import { generateText, hasToolCall, stepCountIs, streamText } from "ai";
 
-import logger, { truncateContent } from "../logger";
+import logger from "../logger";
 import { primaryModel, secondaryModel } from "./provider";
-import Tools from "./tool";
+import BaseTools from "./tool";
+import { agentTools } from "./tool/agent";
 import { Agent, PlanbProvider, ToolContext } from "./type";
 
 export class PlanbAgent<
   CALL_OPTIONS = never,
-  TOOLS extends ToolSet = typeof Tools,
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+  TOOLS extends ToolSet = {},
   OUTPUT extends Output.Output = never,
 > {
   readonly version = "agent-v1";
@@ -125,31 +125,22 @@ export class PlanbAgent<
   > {
     const traceId = (experimental_context as ToolContext | undefined)?.traceId;
     const log = logger.child({ traceId, agent: this.id });
-    const startTime = Date.now();
 
     try {
-      const promptSummary =
-        typeof options.prompt === "string"
-          ? truncateContent(options.prompt)
-          : Array.isArray(options.prompt)
-            ? `[${options.prompt.length} messages]`
-            : "";
-      log.info({ prompt: promptSummary }, "agent.generate.start");
+      const prepareOptions = await this.prepareCall(options);
 
-      const loggingOnStepFinish: GenerateTextOnStepFinishCallback<
-        TOOLS
-      > = async ({ stepNumber, toolCalls, usage }) => {
-        log.debug({ stepNumber, toolCalls, usage }, "agent.generate.step");
-      };
+      log.debug(
+        { prompt: prepareOptions.prompt, messages: prepareOptions.messages },
+        "Agent Generate Input",
+      );
 
       const generateOptions = {
-        ...(await this.prepareCall(options)),
+        ...prepareOptions,
         abortSignal,
         timeout,
         experimental_context,
         onStepFinish: this.mergeOnStepFinishCallbacks(
           onStepFinish,
-          loggingOnStepFinish,
         ) as GenerateTextOnStepFinishCallback<TOOLS>,
       };
 
@@ -157,11 +148,10 @@ export class PlanbAgent<
 
       log.info(
         {
-          durationMs: Date.now() - startTime,
-          text: truncateContent(result.text),
+          text: result.text,
           usage: result.totalUsage,
         },
-        "agent.generate.end",
+        "Agent Generate End",
       );
 
       return result;
@@ -188,54 +178,25 @@ export class PlanbAgent<
     const log = logger.child({ traceId, agent: this.id });
 
     try {
-      log.info(
-        { prompt: options.prompt ?? options.messages },
-        "Agent stream input",
+      const prepareOptions = await this.prepareCall(options);
+
+      log.debug(
+        { prompt: prepareOptions.prompt, messages: prepareOptions.messages },
+        "Agent Stream Input",
       );
 
-      const loggingOnStepFinish: StreamTextOnStepFinishCallback<
-        TOOLS
-      > = async ({ stepNumber, toolCalls, usage }) => {
-        log.debug({ stepNumber, toolCalls, usage }, "agent.stream.step");
-      };
-
       return streamText({
-        ...(await this.prepareCall(options)),
+        ...prepareOptions,
         abortSignal,
         timeout,
         experimental_transform,
         experimental_context,
-        onStepFinish: this.mergeOnStepFinishCallbacks(
-          onStepFinish,
-          loggingOnStepFinish,
-        ),
+        onStepFinish: this.mergeOnStepFinishCallbacks(onStepFinish),
       });
     } catch (error) {
       log.error({ error }, "agent.stream.error");
       throw error;
     }
-  }
-
-  async uiStream(
-    stream: ReturnType<typeof createStreamableValue<UIMessageChunk>>,
-    options: Omit<Parameters<typeof streamText<TOOLS, OUTPUT>>[0], "model">,
-    callback?: (
-      stream: ReturnType<typeof createStreamableValue<UIMessageChunk>>,
-    ) => void,
-  ) {
-    (async () => {
-      const result = await this.stream(options);
-
-      const uiMessages = result.toUIMessageStream();
-
-      for await (const chunk of uiMessages) {
-        stream.update(chunk);
-      }
-
-      if (callback) {
-        callback(stream);
-      }
-    })();
   }
 }
 
@@ -243,7 +204,7 @@ type AgentSetting = {
   content: string;
   frontmatter: Agent;
 };
-export function createAgent<TOOLS extends ToolSet = typeof Tools>(
+export function createAgent<TOOLS extends ToolSet>(
   agent: string,
   provider: PlanbProvider,
   { content, frontmatter }: AgentSetting,
@@ -253,9 +214,11 @@ export function createAgent<TOOLS extends ToolSet = typeof Tools>(
 ) {
   const { model, tools, toolChoice, stopWhen, ...config } = frontmatter;
 
+  const allTools = { ...BaseTools, ...agentTools };
+
   const toolset = tools?.reduce<ToolSet>((acc, toolName) => {
-    if (toolName in Tools) {
-      acc[toolName] = Tools[toolName as keyof typeof Tools];
+    if (toolName in allTools) {
+      acc[toolName] = allTools[toolName as keyof typeof allTools];
     } else {
       logger.warn({ tool: toolName, agent }, "agent.tool.not_found");
     }

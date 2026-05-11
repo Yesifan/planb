@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "f2fe422f-59c8-43cc-b2a3-2a3063256974",
+  "id": "0e0b2112-dd6c-4b72-8a9c-1cfb0a2e8bef",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -509,6 +509,16 @@
       "default": null,
       "generated": null,
       "name": "worldview",
+      "entityType": "columns",
+      "table": "story"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "system",
       "entityType": "columns",
       "table": "story"
     },

@@ -85,3 +85,54 @@ export async function getChatMessages(chatId: string, limit = 100, offset = 0) {
     );
   }
 }
+
+export async function getLastestChatMessage(chatId: string) {
+  const session = await getSessionWithRedirect();
+  const chat = await db.query.chat.findFirst({
+    where: {
+      id: chatId,
+      userId: session.user.id,
+    },
+  });
+  if (!chat) {
+    return notFound();
+  }
+  return await db.query.message.findFirst({
+    with: {
+      toolCalls: true,
+    },
+    where: {
+      chatId: chatId,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+}
+
+export async function getChatHistory(chatId: string, limit = 100, offset = 0) {
+  const session = await getSessionWithRedirect();
+  const chat = await db.query.chat.findFirst({
+    where: {
+      id: chatId,
+      userId: session.user.id,
+    },
+  });
+  if (!chat) {
+    return notFound();
+  }
+  const history = (
+    await db.query.history.findMany({
+      where: {
+        chatId: chatId,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      offset: offset,
+      limit: limit,
+    })
+  ).reverse();
+
+  return history;
+}

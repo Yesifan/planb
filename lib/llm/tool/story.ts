@@ -2,15 +2,16 @@ import { tool } from "ai";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 
-import { DB } from "@/lib/db";
 import { chat, story } from "@/lib/db/schema";
-import logger, { truncateContent } from "@/lib/logger";
+import logger from "@/lib/logger";
+
+import { ToolContext } from "../type";
 
 export const CreateStorySchema = z.object({
   title: z.string().min(1),
   type: z.string().min(1, "Story type"),
-  describe: z.string().min(1, "世界详情，需要描述特异点，主角以及其他重要设定"),
-  worldview: z.string().min(1, "世界观，完整的描述故事中的世界"),
+  describe: z.string().min(1, "初始状态——故事开始时刻的世界快照：主角状态、势力格局、NPC处境、开局冲突"),
+  worldview: z.string().min(1, "世界设定——持续性的世界背景：物理法则、历史、地理、制度、规则边界、NPC画像"),
 });
 
 export const createStory = tool({
@@ -18,20 +19,13 @@ export const createStory = tool({
     "接收用户提供的「故事来源」和「特异点」，生成一个逻辑自洽、细节丰满的异世界世界观",
   inputSchema: CreateStorySchema,
   async execute(input, { experimental_context }) {
-    const { db, chatId, traceId } = experimental_context as {
-      db: DB;
-      chatId: string;
-      traceId?: string;
-    };
+    const { db, chatId, traceId } = experimental_context as ToolContext;
     const log = logger.child({
       traceId: traceId ?? "unknown",
       tool: "createStory",
     });
     try {
-      log.info(
-        { input: truncateContent(JSON.stringify(input)) },
-        "Tool CreateStory",
-      );
+      log.info({ input: JSON.stringify(input) }, "Tool CreateStory");
       await db
         .update(chat)
         .set({
@@ -50,6 +44,38 @@ export const createStory = tool({
       return "Create Success!";
     } catch (error) {
       log.error({ error }, "tool.createStory.error");
+      throw error;
+    }
+  },
+});
+
+export const SaveSystemSettingSchema = z.object({
+  system: z
+    .string()
+    .min(1, "金手指设定不能为空")
+    .describe("完整的金手指设定内容"),
+});
+
+export const saveSystemSetting = tool({
+  description:
+    "当金手指设定生成完成后，调用本工具将设定保存到故事中。保存后设定可被 System Agent 在主流程中读取和使用。",
+  inputSchema: SaveSystemSettingSchema,
+  async execute(input, { experimental_context }) {
+    const { db, chatId, traceId } = experimental_context as ToolContext;
+    const log = logger.child({
+      traceId: traceId ?? "unknown",
+      tool: "saveSystemSetting",
+    });
+    try {
+      log.info({ input: input.system }, "tool.saveSystemSetting");
+      await db
+        .update(story)
+        .set({ system: input.system })
+        .where(eq(story.chatId, chatId));
+      log.info({ chatId }, "tool.saveSystemSetting.end");
+      return "保存成功！";
+    } catch (error) {
+      log.error({ error }, "tool.saveSystemSetting.error");
       throw error;
     }
   },

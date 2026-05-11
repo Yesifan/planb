@@ -15,6 +15,8 @@ export type AgentId =
   | "Chronicler"
   | "ExMachina"
   | "Oracle"
+  | "Sentinel"
+  | "System"
   | "Titler"
   | "Weaver"
   | (string & {});

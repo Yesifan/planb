@@ -5,7 +5,7 @@
 
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-import Tools, { ToolKeys } from "../llm/tool";
+import { AllToolKeys } from "../llm/tool";
 export * from "./auth-schema";
 
 /**
@@ -43,7 +43,7 @@ export const toolCall = sqliteTable("toolcall", {
   id: text("id").primaryKey(),
   messageId: text("message_id").notNull(),
   name: text("tool_calls", {
-    enum: ToolKeys,
+    enum: AllToolKeys,
   }).notNull(),
   input: text("input", { mode: "json" }).notNull(),
   result: text("result"),
@@ -58,6 +58,7 @@ export const story = sqliteTable("story", {
   type: text("type"),
   describe: text("describe"),
   worldview: text("worldview"),
+  system: text("system"),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp_ms" })
     .$onUpdate(() => new Date())
@@ -77,6 +78,7 @@ export type NewChat = typeof chat.$inferInsert;
 export type Message = typeof message.$inferSelect;
 export type NewMessage = typeof message.$inferInsert;
 export type Story = typeof story.$inferSelect;
+export type History = typeof history.$inferSelect;
 
 export type ToolCall = typeof toolCall.$inferSelect;
 

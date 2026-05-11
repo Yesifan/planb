@@ -1,12 +1,11 @@
-import { OnFinishEvent } from "ai";
+import { OnFinishEvent, ToolSet } from "ai";
 
 import { message, toolCall as toolCallDB } from "@/lib/db/schema";
 import logger from "@/lib/logger";
 
-import Tools from "./tool";
 import { ToolContext } from "./type";
 
-export const saveMessageWithTool = async (
+export const saveMessageWithTool = async <T extends ToolSet>(
   messageId: string,
   {
     text,
@@ -15,7 +14,7 @@ export const saveMessageWithTool = async (
     toolCalls,
     toolResults,
     totalUsage,
-  }: OnFinishEvent<typeof Tools>,
+  }: OnFinishEvent<T>,
   experimental_context: ToolContext,
 ) => {
   const { db, chatId, traceId } = experimental_context;
@@ -63,8 +62,8 @@ export const saveMessageWithTool = async (
               return {
                 id: toolCall.toolCallId,
                 messageId: messageId,
-                name: toolCall.toolName,
-                input: toolCall.input,
+                name: toolCall.toolName as typeof import("./tool").AllToolKeys[number],
+                input: toolCall.input as Record<string, unknown>,
                 result: result ? JSON.stringify(result) : undefined,
                 createdAt: now,
               };

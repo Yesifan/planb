@@ -61,6 +61,7 @@ CREATE TABLE `story` (
 	`type` text,
 	`describe` text,
 	`worldview` text,
+	`system` text,
 	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL
 );

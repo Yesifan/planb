@@ -40,7 +40,8 @@ export default function StorySetting({ story }: { story?: Story }) {
                 <TabsList>
                   <TabsTrigger value="basic">基本信息</TabsTrigger>
                   <TabsTrigger value="worldview">世界观</TabsTrigger>
-                  <TabsTrigger value="describe">世界背景</TabsTrigger>
+                  <TabsTrigger value="describe">故事初始设定</TabsTrigger>
+                  <TabsTrigger value="system">系统初始设定</TabsTrigger>
                 </TabsList>
                 <TabsContent value="basic" className="pt-4">
                   <div className="space-y-4">
@@ -94,6 +95,20 @@ export default function StorySetting({ story }: { story?: Story }) {
                       className="[&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
                     >
                       {story.describe}
+                    </Streamdown>
+                  ) : (
+                    <div className="text-muted-foreground text-sm">
+                      暂无描述
+                    </div>
+                  )}
+                </TabsContent>
+                <TabsContent value="system" className="pt-4">
+                  {story.system ? (
+                    <Streamdown
+                      plugins={streamdownPlugins}
+                      className="[&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+                    >
+                      {story.system}
                     </Streamdown>
                   ) : (
                     <div className="text-muted-foreground text-sm">

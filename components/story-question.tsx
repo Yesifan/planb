@@ -46,12 +46,11 @@ export default function StoryQuestion({
 
   const handleSubmit = async (values: z.infer<typeof schema>) => {
     if (disabled) return;
-    const prompt = Object.keys(values).reduce((acc, key) => {
-      acc += `<${key}>${values[key]}</${key}>`;
-      return acc;
-    }, "");
+    const prompt = Object.entries(values).map(([key, values]) => {
+      return `- ${key}: ${values}`;
+    });
     logger.info({ values, prompt }, "story question submit");
-    await onSubmit({ text: prompt, files: [] });
+    await onSubmit({ text: prompt.join("\n"), files: [] });
   };
 
   return (
