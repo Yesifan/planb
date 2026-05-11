@@ -21,6 +21,7 @@ import { saveMessageWithTool } from "@/lib/llm/db";
 import {
   toHistoryModelMessage,
   toModelMessage,
+  toModelMessages,
   toStoryModelMessage,
 } from "@/lib/llm/utils";
 import logger from "@/lib/logger";
@@ -200,7 +201,7 @@ async function continueStory(
   log.debug({ arbiterText }, "Arbiter Review");
 
   // Step 4: Weaver 将审核通过的历史年表扩写为小说正文
-  const result = await weaver.stream({
+  return weaver.stream({
     prompt: [
       ...oraclePrompt,
       {
@@ -211,7 +212,6 @@ async function continueStory(
     experimental_context,
     onFinish(options) {
       const now = new Date();
-      const { db } = experimental_context;
       db.insert(history).values({
         id: nanoid(),
         chatId: chatId,
@@ -221,8 +221,6 @@ async function continueStory(
       onFinish(options as unknown as OnFinishEvent<ToolSet>);
     },
   });
-
-  return result;
 }
 
 export async function continueConversation(chatId: string, prompt: string) {
@@ -235,13 +233,13 @@ export async function continueConversation(chatId: string, prompt: string) {
 
   const now = new Date();
 
-  log.info({ chatId, prompt }, "action.continueConversation.start");
+  log.info({ chatId, prompt }, "Input");
 
   const history = await getChatHistory(chatId);
   const storyData = await db.query.story.findFirst({
     where: { chatId: chatId },
   });
-  let latestMessage: MessageWithToolCall | NewMessage | undefined =
+  const latestMessage: MessageWithToolCall | NewMessage | undefined =
     await getLastestChatMessage(chatId);
 
   const recentQuestion =
@@ -251,16 +249,19 @@ export async function continueConversation(chatId: string, prompt: string) {
       (tc) => tc.name === "createQuestion" && !tc.result,
     );
 
+  const recnetMessages: Array<MessageWithToolCall | NewMessage> = latestMessage
+    ? [latestMessage]
+    : [];
   if (recentQuestion) {
     recentQuestion.result = prompt;
   } else {
-    latestMessage = {
+    recnetMessages.push({
       id: userMessageId,
       chatId,
       role: "user" as const,
       text: prompt,
       createdAt: now,
-    };
+    });
   }
 
   if (recentQuestion) {
@@ -285,10 +286,10 @@ export async function continueConversation(chatId: string, prompt: string) {
 
   const storyMessage = toStoryModelMessage(storyData);
   const hsitoryMessage = toHistoryModelMessage(history);
-  const inputMessages = toModelMessage(latestMessage);
+  const inputMessages = toModelMessages(recnetMessages);
   const modelMessage = hsitoryMessage
     ? [storyMessage, hsitoryMessage, ...inputMessages]
-    : inputMessages;
+    : [storyMessage, ...inputMessages];
 
   const stream = createStreamableValue<UIMessageChunk>();
 
@@ -319,6 +320,8 @@ export async function continueConversation(chatId: string, prompt: string) {
           onFinish,
         );
 
+    log.debug("stream ui message start");
+
     const uiMessages = result.toUIMessageStream();
 
     for await (const chunk of uiMessages) {
@@ -326,6 +329,7 @@ export async function continueConversation(chatId: string, prompt: string) {
     }
 
     stream.done();
+    log.debug("stream ui message done");
   })();
 
   return {

@@ -134,7 +134,7 @@ export class PlanbAgent<
         "Agent Generate Input",
       );
 
-      const generateOptions = {
+      const result = await generateText({
         ...prepareOptions,
         abortSignal,
         timeout,
@@ -142,9 +142,7 @@ export class PlanbAgent<
         onStepFinish: this.mergeOnStepFinishCallbacks(
           onStepFinish,
         ) as GenerateTextOnStepFinishCallback<TOOLS>,
-      };
-
-      const result = await generateText(generateOptions);
+      });
 
       log.info(
         {
@@ -168,8 +166,9 @@ export class PlanbAgent<
     abortSignal,
     timeout,
     experimental_transform,
-    onStepFinish,
     experimental_context,
+    onError,
+    onStepFinish,
     ...options
   }: Omit<Parameters<typeof streamText<TOOLS, OUTPUT>>[0], "model">): Promise<
     StreamTextResult<TOOLS, OUTPUT>
@@ -177,26 +176,25 @@ export class PlanbAgent<
     const traceId = (experimental_context as ToolContext | undefined)?.traceId;
     const log = logger.child({ traceId, agent: this.id });
 
-    try {
-      const prepareOptions = await this.prepareCall(options);
+    const prepareOptions = await this.prepareCall(options);
 
-      log.debug(
-        { prompt: prepareOptions.prompt, messages: prepareOptions.messages },
-        "Agent Stream Input",
-      );
+    log.debug(
+      { prompt: prepareOptions.prompt, messages: prepareOptions.messages },
+      "Agent Stream Input",
+    );
 
-      return streamText({
-        ...prepareOptions,
-        abortSignal,
-        timeout,
-        experimental_transform,
-        experimental_context,
-        onStepFinish: this.mergeOnStepFinishCallbacks(onStepFinish),
-      });
-    } catch (error) {
-      log.error({ error }, "agent.stream.error");
-      throw error;
-    }
+    return streamText({
+      ...prepareOptions,
+      abortSignal,
+      timeout,
+      experimental_transform,
+      experimental_context,
+      onError: (e) => {
+        log.error(e, "Agent Stream Error");
+        onError?.(e);
+      },
+      onStepFinish: this.mergeOnStepFinishCallbacks(onStepFinish),
+    });
   }
 }
 

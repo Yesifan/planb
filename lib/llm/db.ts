@@ -3,6 +3,7 @@ import { OnFinishEvent, ToolSet } from "ai";
 import { message, toolCall as toolCallDB } from "@/lib/db/schema";
 import logger from "@/lib/logger";
 
+import { db } from "../db";
 import { ToolContext } from "./type";
 
 export const saveMessageWithTool = async <T extends ToolSet>(
@@ -17,15 +18,16 @@ export const saveMessageWithTool = async <T extends ToolSet>(
   }: OnFinishEvent<T>,
   experimental_context: ToolContext,
 ) => {
-  const { db, chatId, traceId } = experimental_context;
+  const { chatId, traceId } = experimental_context;
 
-  if (!db || !chatId) {
-    const log = logger.child({ traceId, action: "createStory" });
+  const log = logger.child({ traceId, action: "saveMessageWithTool" });
+
+  if (!chatId) {
     log.error(
       experimental_context,
-      "db or chat id not found with experimental_context",
+      "chat id not found with experimental_context",
     );
-    throw new Error("db or chat id not found with experimental_context");
+    throw new Error("chat id not found with experimental_context");
   }
 
   const now = new Date();
@@ -35,41 +37,39 @@ export const saveMessageWithTool = async <T extends ToolSet>(
     "",
   );
 
+  log.debug({ text, reasoningText, toolCalls }, "save in DB");
+
   db.transaction((tx) => {
-    tx.insert(message)
-      .values({
-        id: messageId,
-        chatId: chatId,
-        role: "assistant",
-        text: text,
-        reasoning: reasoningText,
-        inputTokens: totalUsage?.inputTokens,
-        outputTokens: totalUsage?.outputTokens,
-        model: typeof model === "string" ? model : model?.modelId,
-        createdAt: now,
-      })
-      .run();
+    tx.insert(message).values({
+      id: messageId,
+      chatId: chatId,
+      role: "assistant",
+      text: text,
+      reasoning: reasoningText,
+      inputTokens: totalUsage?.inputTokens,
+      outputTokens: totalUsage?.outputTokens,
+      model: typeof model === "string" ? model : model?.modelId,
+      createdAt: now,
+    });
 
     if (toolCalls.length > 0) {
-      tx.insert(toolCallDB)
-        .values(
-          toolCalls
-            .filter((toolCall) => !toolCall.dynamic)
-            .map((toolCall) => {
-              const result = toolResults.find(
-                (result) => result.toolCallId === toolCall.toolCallId,
-              )?.output;
-              return {
-                id: toolCall.toolCallId,
-                messageId: messageId,
-                name: toolCall.toolName as typeof import("./tool").AllToolKeys[number],
-                input: toolCall.input as Record<string, unknown>,
-                result: result ? JSON.stringify(result) : undefined,
-                createdAt: now,
-              };
-            }),
-        )
-        .run();
+      tx.insert(toolCallDB).values(
+        toolCalls
+          .filter((toolCall) => !toolCall.dynamic)
+          .map((toolCall) => {
+            const result = toolResults.find(
+              (result) => result.toolCallId === toolCall.toolCallId,
+            )?.output;
+            return {
+              id: toolCall.toolCallId,
+              messageId: messageId,
+              name: toolCall.toolName as (typeof import("./tool").AllToolKeys)[number],
+              input: toolCall.input as Record<string, unknown>,
+              result: result ? JSON.stringify(result) : undefined,
+              createdAt: now,
+            };
+          }),
+      );
     }
   });
 };
