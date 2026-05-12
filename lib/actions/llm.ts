@@ -16,7 +16,7 @@ import {
   story,
   toolCall,
 } from "@/lib/db/schema";
-import { arbiter, archivist, oracle, sentinel, weaver } from "@/lib/llm";
+import { archivist, oracle, sentinel, weaver } from "@/lib/llm";
 import { saveMessageWithTool } from "@/lib/llm/db";
 import {
   toHistoryModelMessage,
@@ -129,12 +129,11 @@ async function continueCreateStory(
 }
 
 /**
- * 主流程：Sentinel → Oracle → Arbiter(审查选优) → Weaver
+ * 主流程：Sentinel → Oracle(内部含 Arbiter 审查循环) → Weaver
  *
  * 1. Sentinel 审查用户输入 — 不合理则 rejectInput，合理则转化为历史年表
- * 2. Oracle 根据审查后的输入生成分支剧情（内部通过 dice/activateSystem tools 调度骰子和系统）
- * 3. Arbiter 审查 Oracle 分支 — 逻辑不通则打回（暂不实现循环），通过则打分选优输出历史年表
- * 4. Weaver 将审核通过的历史年表扩写为小说正文
+ * 2. Oracle 根据审查后的输入生成分支剧情（内部通过 reviewBranch/dice/activateSystem 工具完成审查和调度）
+ * 3. Weaver 将审核通过的历史年表扩写为小说正文
  */
 async function continueStory(
   chatId: string,
@@ -199,29 +198,12 @@ async function continueStory(
 
   log.debug({ text: oracleResult.text }, "Oracle Branches");
 
-  // Step 3: Arbiter 审查 Oracle 分支
-  const arbiterBranchResult = await arbiter.stream({
-    prompt: [
-      ...oraclePrompt.slice(0, -1),
-      {
-        role: "user",
-        content: `请审查以下 Oracle 生成的剧情分支: \n\n${oracleResult.text}`,
-      },
-    ],
-    experimental_context,
-  });
-
-  const arbiterText = await arbiterBranchResult.text;
-
-  log.debug({ arbiterText }, "Arbiter Review");
-
-  // Step 4: Weaver 将审核通过的历史年表扩写为小说正文
   return await weaver.stream({
     prompt: [
       ...oraclePrompt.slice(0, -1),
       {
         role: "user",
-        content: `以下是剧情大纲：\n\n${arbiterText}\n\n`,
+        content: `以下是剧情大纲：\n\n${oracleResult.text}\n\n`,
       },
     ],
     experimental_context,
@@ -229,13 +211,16 @@ async function continueStory(
       log.info(event, "weaver abort");
     },
     async onFinish(options) {
-      log.debug({ arbiterText, weaverText: options.text }, "weaver finish");
+      log.debug(
+        { oracleText: oracleResult.text, weaverText: options.text },
+        "weaver finish",
+      );
 
       const now = new Date();
       await db.insert(history).values({
         id: nanoid(),
         chatId: chatId,
-        content: arbiterText,
+        content: oracleResult.text,
         createdAt: now,
       });
       await onFinish(options as unknown as OnFinishEvent<ToolSet>);

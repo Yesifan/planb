@@ -1,6 +1,8 @@
 import { tool } from "ai";
 import { z } from "zod";
 
+import { db } from "@/lib/db";
+
 import { ToolContext } from "../type";
 
 export const ActivateSystemSchema = z.object({
@@ -13,9 +15,9 @@ export const activateSystem = tool({
     "当剧情分支中金手指/系统需要介入时，调用本工具激活系统。系统将根据金手指设定和当前情境生成介入内容（任务/选项/奖励/警告），返回的介入结果需要融入该分支的历史年表输出中。",
   inputSchema: ActivateSystemSchema,
   async execute(input, { experimental_context }) {
-    const { db, chatId } = experimental_context as ToolContext;
+    const { chatId } = experimental_context as ToolContext;
     const storyData = await db.query.story.findFirst({
-      where: { chatId: chatId },
+      where: { chatId },
     });
     if (storyData?.system) {
       const { system: systemAgent } = await import("../index");
@@ -48,7 +50,37 @@ export const exMachina = tool({
   },
 });
 
+export const ReviewBranchSchema = z.object({
+  content: z.string().describe("待审查的故事推演内容"),
+});
+
+export const reviewBranch = tool({
+  description:
+    "调用裁决者 Arbiter 对故事推演进行逻辑审查与打分。Arbiter 会基于世界观与历史年表，对推演按世界逻辑一致性、人物行为合理性、因果链完整性、时间线一致性四个维度进行评估，输出结构化的审查结果。",
+  inputSchema: ReviewBranchSchema,
+  async execute(input, { experimental_context }) {
+    const { chatId } = experimental_context as ToolContext;
+    const storyData = await db.query.story.findFirst({
+      where: { chatId },
+    });
+    const histories = (
+      await db.query.history.findMany({
+        where: { chatId },
+        orderBy: { createdAt: "desc" },
+      })
+    ).reverse();
+    const historyText = histories.map((h) => h.content).join("\n\n---\n\n") || "（暂无历史记录）";
+    const { arbiter } = await import("../index");
+    const result = await arbiter.generate({
+      prompt: `## 世界观设定\n${storyData?.worldview ?? "（未设定）"}\n\n## 历史年表\n${historyText}\n\n## 待审查的故事推演\n${input.content}\n\n请对该推演进行逻辑审查与打分。`,
+      experimental_context,
+    });
+    return result.text;
+  },
+});
+
 export const agentTools = {
   activateSystem,
   exMachina,
+  reviewBranch,
 } as const;

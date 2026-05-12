@@ -59,7 +59,7 @@ const Tools = {
 
 export default Tools;
 
-export const AgentTookKeys = ["activateSystem", "exMachina"];
+export const AgentTookKeys = ["activateSystem", "exMachina", "reviewBranch"];
 
 export const ToolKeys = [
   "createStory",
