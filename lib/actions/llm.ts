@@ -151,6 +151,14 @@ async function continueStory(
   const sentinelInputResult = await sentinel.stream({
     prompt: messages,
     experimental_context,
+    async onFinish(event) {
+      const wasRejected = event.toolCalls.some(
+        (tc) => tc.toolName === "rejectInput",
+      );
+      if (wasRejected) {
+        await onFinish(event as unknown as OnFinishEvent<ToolSet>);
+      }
+    },
   });
 
   // 检查是否被 rejectInput tool 拒绝
@@ -177,6 +185,17 @@ async function continueStory(
     prompt: oraclePrompt,
     experimental_context,
   });
+
+  for (const step of oracleResult.steps) {
+    log.debug(
+      {
+        toolCalls: step.toolCalls.map((tc) => ({
+          name: tc.toolName,
+        })),
+      },
+      "Oracle Step Chain",
+    );
+  }
 
   log.debug({ text: oracleResult.text }, "Oracle Branches");
 

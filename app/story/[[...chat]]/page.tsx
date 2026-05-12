@@ -24,6 +24,7 @@ import {
   StoryPromptSubmit,
 } from "@/components/story-prompt";
 import StoryQuestion from "@/components/story-question";
+import StoryRejection from "@/components/story-rejection";
 import StorySetting from "@/components/story-setting";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
@@ -116,9 +117,10 @@ export default function StoryPage() {
                       );
                     case "tool-rejectInput":
                       return (
-                        <div key={`${message.id}-${i}`}>
-                          <div>{part.input?.reason}</div>
-                        </div>
+                        <StoryRejection
+                          key={`${message.id}-${i}`}
+                          reason={part.input?.reason ?? ""}
+                        />
                       );
                   }
                 })}
