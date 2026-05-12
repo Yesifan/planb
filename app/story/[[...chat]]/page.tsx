@@ -114,6 +114,12 @@ export default function StoryPage() {
                           {part.text}
                         </MessageResponse>
                       );
+                    case "tool-rejectInput":
+                      return (
+                        <div key={`${message.id}-${i}`}>
+                          <div>{part.input?.reason}</div>
+                        </div>
+                      );
                   }
                 })}
               </MessageContent>

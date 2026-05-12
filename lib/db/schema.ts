@@ -68,7 +68,7 @@ export const story = sqliteTable("story", {
 export const history = sqliteTable("history", {
   id: text("id").primaryKey(),
   chatId: text("chat_id").notNull(),
-  content: text("title").notNull(),
+  content: text("content").notNull(),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
 });
 

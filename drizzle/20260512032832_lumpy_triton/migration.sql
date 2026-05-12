@@ -25,7 +25,7 @@ CREATE TABLE `chat` (
 CREATE TABLE `history` (
 	`id` text PRIMARY KEY,
 	`chat_id` text NOT NULL,
-	`title` text NOT NULL,
+	`content` text NOT NULL,
 	`created_at` integer NOT NULL
 );
 --> statement-breakpoint

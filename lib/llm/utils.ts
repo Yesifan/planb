@@ -97,13 +97,9 @@ export function toModelMessages(
   }, []);
 }
 
-export function toHistoryModelMessage(
-  history: History[],
-): ModelMessage | undefined {
-  if (history.length === 0) {
-    return undefined;
-  }
-  const content = history.join("\n");
+export function toHistoryModelMessage(history: History[]): ModelMessage {
+  const content =
+    history.length === 0 ? "Empty" : history.map((h) => h.content).join("\n");
   return {
     role: "system",
     content: "# The History:\n" + content,

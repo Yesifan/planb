@@ -10,13 +10,23 @@ import { ToolContext } from "../type";
 export const CreateStorySchema = z.object({
   title: z.string().min(1),
   type: z.string().min(1, "Story type"),
-  describe: z.string().min(1, "初始状态——故事开始时刻的世界快照：主角状态、势力格局、NPC处境、开局冲突"),
-  worldview: z.string().min(1, "世界设定——持续性的世界背景：物理法则、历史、地理、制度、规则边界、NPC画像"),
+  describe: z
+    .string()
+    .min(
+      1,
+      "初始状态——故事开始时刻的世界快照：主角状态、势力格局、NPC处境、开局冲突",
+    ),
+  worldview: z
+    .string()
+    .min(
+      1,
+      "世界设定——持续性的世界背景：物理法则、历史、地理、制度、规则边界、NPC画像",
+    ),
 });
 
 export const createStory = tool({
   description:
-    "接收用户提供的「故事来源」和「特异点」，生成一个逻辑自洽、细节丰满的异世界世界观",
+    "接收用户提供的「故事来源」和「特异点」，生成一个逻辑自洽、细节丰满的特异点世界的世界设定",
   inputSchema: CreateStorySchema,
   async execute(input, { experimental_context }) {
     const { db, chatId, traceId } = experimental_context as ToolContext;

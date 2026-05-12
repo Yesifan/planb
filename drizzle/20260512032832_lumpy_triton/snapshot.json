@@ -1,7 +1,7 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "0e0b2112-dd6c-4b72-8a9c-1cfb0a2e8bef",
+  "id": "092d65e5-fd5b-4d7e-8ea4-98f6bbd10060",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -248,7 +248,7 @@
       "autoincrement": false,
       "default": null,
       "generated": null,
-      "name": "title",
+      "name": "content",
       "entityType": "columns",
       "table": "history"
     },

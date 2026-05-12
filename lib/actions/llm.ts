@@ -20,7 +20,6 @@ import { arbiter, archivist, oracle, sentinel, weaver } from "@/lib/llm";
 import { saveMessageWithTool } from "@/lib/llm/db";
 import {
   toHistoryModelMessage,
-  toModelMessage,
   toModelMessages,
   toStoryModelMessage,
 } from "@/lib/llm/utils";
@@ -121,7 +120,7 @@ async function continueCreateStory(
       {
         role: "system",
         content:
-          "根据故事世界观和背景生成故事开端。 必须详细描写特异点的前因以及特异点是如何发生的。在描述的结尾自然的留一个扣子，让用户和这个世界进行交互进行交互！",
+          "根据故事世界观和背景生成故事开端。 必须详细描写特异点的前因以及特异点是如何发生的。在描述的结尾自然的留一个扣子，让用户和这个世界进行交互！",
       },
     ],
     experimental_context,
@@ -160,10 +159,7 @@ async function continueStory(
   );
 
   if (rejected) {
-    log.debug(
-      { text: await sentinelInputResult.steps },
-      "Sentinel Review Rejected",
-    );
+    log.debug("Sentinel Review Rejected");
 
     return sentinelInputResult;
   }
@@ -201,7 +197,7 @@ async function continueStory(
   log.debug({ arbiterText }, "Arbiter Review");
 
   // Step 4: Weaver 将审核通过的历史年表扩写为小说正文
-  return weaver.stream({
+  return await weaver.stream({
     prompt: [
       ...oraclePrompt,
       {
@@ -210,15 +206,22 @@ async function continueStory(
       },
     ],
     experimental_context,
-    onFinish(options) {
+    onAbort(event) {
+      log.info(event, "weaver abort");
+    },
+    onChunk() {},
+    async onFinish(options) {
+      log.debug({ arbiterText, weaverText: options.text }, "weaver finish");
+
       const now = new Date();
-      db.insert(history).values({
+      await db.insert(history).values({
         id: nanoid(),
         chatId: chatId,
         content: arbiterText,
         createdAt: now,
       });
-      onFinish(options as unknown as OnFinishEvent<ToolSet>);
+      await onFinish(options as unknown as OnFinishEvent<ToolSet>);
+      log.debug("weaver save db finish");
     },
   });
 }
@@ -282,14 +285,12 @@ export async function continueConversation(chatId: string, prompt: string) {
   const isSettingComplete =
     storyData?.type && storyData?.describe && storyData?.worldview;
 
-  log.debug({ chatId, prompt, messages: latestMessage }, " input");
-
   const storyMessage = toStoryModelMessage(storyData);
   const hsitoryMessage = toHistoryModelMessage(history);
   const inputMessages = toModelMessages(recnetMessages);
-  const modelMessage = hsitoryMessage
-    ? [storyMessage, hsitoryMessage, ...inputMessages]
-    : [storyMessage, ...inputMessages];
+  const modelMessage = [storyMessage, hsitoryMessage, ...inputMessages];
+
+  log.debug({ chatId, prompt, latestMessage, modelMessage }, "input");
 
   const stream = createStreamableValue<UIMessageChunk>();
 

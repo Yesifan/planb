@@ -232,11 +232,6 @@ export function createAgent<TOOLS extends ToolSet>(
           : undefined
       : undefined;
 
-  logger.debug(
-    toolset ? { agent, tools: Object.keys(toolset) } : { agent, tools: [] },
-    "agent.tools.loaded",
-  );
-
   const hasToolCallFun = stopWhen?.hasToolCall
     ? stopWhen.hasToolCall.map((toolName) => hasToolCall(toolName))
     : [];

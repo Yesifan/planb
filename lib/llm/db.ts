@@ -50,7 +50,7 @@ export const saveMessageWithTool = async <T extends ToolSet>(
       outputTokens: totalUsage?.outputTokens,
       model: typeof model === "string" ? model : model?.modelId,
       createdAt: now,
-    });
+    }).run();
 
     if (toolCalls.length > 0) {
       tx.insert(toolCallDB).values(
@@ -69,7 +69,7 @@ export const saveMessageWithTool = async <T extends ToolSet>(
               createdAt: now,
             };
           }),
-      );
+      ).run();
     }
   });
 };
