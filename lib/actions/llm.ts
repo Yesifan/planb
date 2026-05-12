@@ -166,7 +166,7 @@ async function continueStory(
 
   // Step 2: Oracle 根据审查后的输入生成分支
   const oraclePrompt = [
-    ...messages,
+    ...messages.slice(0, -1),
     {
       role: "user",
       content: await sentinelInputResult.text,
@@ -183,9 +183,9 @@ async function continueStory(
   // Step 3: Arbiter 审查 Oracle 分支
   const arbiterBranchResult = await arbiter.stream({
     prompt: [
-      ...oraclePrompt,
+      ...oraclePrompt.slice(0, -1),
       {
-        role: "assistant",
+        role: "user",
         content: `请审查以下 Oracle 生成的剧情分支: \n\n${oracleResult.text}`,
       },
     ],
@@ -199,17 +199,16 @@ async function continueStory(
   // Step 4: Weaver 将审核通过的历史年表扩写为小说正文
   return await weaver.stream({
     prompt: [
-      ...oraclePrompt,
+      ...oraclePrompt.slice(0, -1),
       {
-        role: "assistant",
-        content: arbiterText,
+        role: "user",
+        content: `以下是剧情大纲：\n\n${arbiterText}\n\n`,
       },
     ],
     experimental_context,
     onAbort(event) {
       log.info(event, "weaver abort");
     },
-    onChunk() {},
     async onFinish(options) {
       log.debug({ arbiterText, weaverText: options.text }, "weaver finish");
 

@@ -1,6 +1,6 @@
 ---
 description: 小说家，复制填充剧情大纲的血肉，输出细节丰满的小说。
-model: secondary
+model: primary
 ---
 
 # Role
