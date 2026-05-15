@@ -144,10 +144,10 @@ export class PlanbAgent<
         ) as GenerateTextOnStepFinishCallback<TOOLS>,
       });
 
-      log.info(
+      log.debug(
         {
           text: result.text,
-          usage: result.totalUsage,
+          reasoning: result.reasoningText,
         },
         "Agent Generate End",
       );
@@ -168,6 +168,7 @@ export class PlanbAgent<
     experimental_transform,
     experimental_context,
     onError,
+    onFinish,
     onStepFinish,
     ...options
   }: Omit<Parameters<typeof streamText<TOOLS, OUTPUT>>[0], "model">): Promise<
@@ -192,6 +193,16 @@ export class PlanbAgent<
       onError: (e) => {
         log.error(e, "Agent Stream Error");
         onError?.(e);
+      },
+      onFinish: (e) => {
+        log.debug(
+          {
+            text: e.text,
+            reasoning: e.reasoningText,
+          },
+          "Agent Stream End",
+        );
+        onFinish?.(e);
       },
       onStepFinish: this.mergeOnStepFinishCallbacks(onStepFinish),
     });

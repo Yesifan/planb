@@ -4,6 +4,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 
 import { ToolContext } from "../type";
+import { toHistoryModelMessage, toStoryModelMessage } from "../utils";
 
 export const ActivateSystemSchema = z.object({
   trigger: z.string().describe("触发原因：当前剧情中什么情况需要金手指介入"),
@@ -21,8 +22,15 @@ export const activateSystem = tool({
     });
     if (storyData?.system) {
       const { system: systemAgent } = await import("../index");
+      const storyMessage = toStoryModelMessage(storyData);
       const result = await systemAgent.generate({
-        prompt: `## 金手指设定\n${storyData.system}\n\n## 当前剧情状态\n${input.currentSituation}\n\n## 触发原因\n${input.trigger}\n\n请根据以上情境进行介入。`,
+        prompt: [
+          storyMessage,
+          {
+            role: "user",
+            content: `## 当前剧情状态\n${input.currentSituation}\n\n## 触发原因\n${input.trigger}\n\n请根据以上情境进行介入。`,
+          },
+        ],
         experimental_context,
       });
       return result.text;
@@ -43,22 +51,35 @@ export const exMachina = tool({
   async execute(input, { experimental_context }) {
     const { exMachina: exMachinaAgent } = await import("../index");
     const result = await exMachinaAgent.generate({
-      prompt: `## 世界观设定\n${input.worldview}\n\n## 用户需求\n${input.userRequirement}\n\n请根据以上信息生成完整的金手指设定，完成后调用 saveSystemSetting 工具保存。`,
+      prompt: [
+        {
+          role: "system",
+          content: ["# 故事设定", `## 世界观设定\n${input.worldview}`].join(
+            "\n",
+          ),
+        },
+        {
+          role: "user",
+          content: `## 用户需求\n${input.userRequirement}\n\n请根据以上信息生成完整的金手指设定，完成后调用 saveSystemSetting 工具保存。`,
+        },
+      ],
       experimental_context,
     });
     return result.text;
   },
 });
 
-export const ReviewBranchSchema = z.object({
-  content: z.string().describe("待审查的故事推演内容"),
-});
-
 export const reviewBranch = tool({
   description:
-    "调用裁决者 Arbiter 对故事推演进行逻辑审查与打分。Arbiter 会基于世界观与历史年表，对推演按世界逻辑一致性、人物行为合理性、因果链完整性、时间线一致性四个维度进行评估，输出结构化的审查结果。",
-  inputSchema: ReviewBranchSchema,
-  async execute(input, { experimental_context }) {
+    "调用裁决者 Arbiter 对故事推演进行逻辑审查与打分。Arbiter 会基于世界观与历史年表，对推演按多个维度进行评估，输出审查结果。",
+  inputSchema: z.object({
+    content: z
+      .string()
+      .describe(
+        "待审查的完整故事推演内容，包括玩家操作、剧情大纲、暗线叙事、决策岔口等全部内容",
+      ),
+  }),
+  async execute({ content }, { experimental_context }) {
     const { chatId } = experimental_context as ToolContext;
     const storyData = await db.query.story.findFirst({
       where: { chatId },
@@ -69,10 +90,18 @@ export const reviewBranch = tool({
         orderBy: { createdAt: "desc" },
       })
     ).reverse();
-    const historyText = histories.map((h) => h.content).join("\n\n---\n\n") || "（暂无历史记录）";
+    const storyMessage = toStoryModelMessage(storyData);
+    const historyMessage = toHistoryModelMessage(histories);
     const { arbiter } = await import("../index");
     const result = await arbiter.generate({
-      prompt: `## 世界观设定\n${storyData?.worldview ?? "（未设定）"}\n\n## 历史年表\n${historyText}\n\n## 待审查的故事推演\n${input.content}\n\n请对该推演进行逻辑审查与打分。`,
+      prompt: [
+        storyMessage,
+        historyMessage,
+        {
+          role: "user",
+          content: `## 待审查的故事推演\n${content}\n\n请对该推演进行逻辑审查与打分。`,
+        },
+      ],
       experimental_context,
     });
     return result.text;

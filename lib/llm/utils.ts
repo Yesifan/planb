@@ -99,10 +99,14 @@ export function toModelMessages(
 
 export function toHistoryModelMessage(history: History[]): ModelMessage {
   const content =
-    history.length === 0 ? "Empty" : history.map((h) => h.content).join("\n");
+    history.length === 0 ? "（暂无历史记录）" : history.map((h) => h.content).join("\n\n---\n\n");
   return {
     role: "system",
-    content: "# The History:\n" + content,
+    content: [
+      "# 故事设定",
+      "## 历史年表",
+      content,
+    ].join("\n"),
   };
 }
 
@@ -113,9 +117,9 @@ export function toStoryModelMessage(story?: Story): ModelMessage {
       ? [
           "# 故事设定",
           `## 故事类型\n${story.type}`,
-          `## 世界设定\n${story.worldview}`,
+          `## 世界观设定\n${story.worldview}`,
           `## 初始设定\n${story.describe}`,
-          `## 金手指初始设定\n${story.system}`,
+          `## 金手指设定\n${story.system ?? "（未设定）"}`,
         ].join("\n")
       : "故事设定尚未生成！",
   };

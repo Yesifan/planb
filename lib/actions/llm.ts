@@ -20,7 +20,7 @@ import { archivist, oracle, sentinel, weaver } from "@/lib/llm";
 import { saveMessageWithTool } from "@/lib/llm/db";
 import {
   toHistoryModelMessage,
-  toModelMessages,
+  toModelMessage,
   toStoryModelMessage,
 } from "@/lib/llm/utils";
 import logger from "@/lib/logger";
@@ -32,11 +32,11 @@ export async function createStory(source: string, singularity: string) {
   const traceId = nanoid();
   const log = logger.child({ traceId, action: "createStory" });
 
-  log.info({ source, singularity }, "action.createStory.start");
+  log.info({ source, singularity }, "start");
 
   const session = await getSessionWithRedirect();
 
-  const prompt = `source: ${source}\n singularity: ${singularity}`;
+  const prompt = `# 故事设定\n\n## 故事来源\n${source}\n\n## 特异点\n${singularity}`;
 
   const chatId = nanoid();
   const storyId = nanoid();
@@ -98,21 +98,10 @@ async function continueCreateStory(
   experimental_context: ToolContext,
   onFinish: (event: OnFinishEvent<ToolSet>) => Promise<void>,
 ) {
-  const traceId = nanoid();
-  const log = logger.child({ traceId, action: "continueCreateStory" });
-
   const archivistResult = await archivist.generate({
     prompt: messages,
     experimental_context,
   });
-
-  log.debug(
-    {
-      text: archivistResult.text,
-      messages: archivistResult.response.messages,
-    },
-    "archivist output",
-  );
 
   return await weaver.stream({
     prompt: [
@@ -120,7 +109,7 @@ async function continueCreateStory(
       {
         role: "system",
         content:
-          "根据故事世界观和背景生成故事开端。 必须详细描写特异点的前因以及特异点是如何发生的。在描述的结尾自然的留一个扣子，让用户和这个世界进行交互！",
+          "根据故事世界观和背景生成故事开端。必须详细描写特异点的前因以及特异点是如何发生的。在描述的结尾自然的留一个扣子，让用户和这个世界进行交互！",
       },
     ],
     experimental_context,
@@ -185,25 +174,33 @@ async function continueStory(
     experimental_context,
   });
 
-  for (const step of oracleResult.steps) {
-    log.debug(
-      {
-        toolCalls: step.toolCalls.map((tc) => ({
-          name: tc.toolName,
-        })),
-      },
-      "Oracle Step Chain",
-    );
-  }
-
-  log.debug({ text: oracleResult.text }, "Oracle Branches");
+  const latestMessage = await db.query.message.findFirst({
+    where: {
+      chatId: chatId,
+      role: "assistant",
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
 
   return await weaver.stream({
     prompt: [
-      ...oraclePrompt.slice(0, -1),
+      messages[0],
+      {
+        role: "system",
+        content: latestMessage
+          ? "以下是上一章节的内容：\n\n" + latestMessage.text
+          : "",
+      },
+      {
+        role: "system",
+        content: `以下是剧情大纲：\n\n${oracleResult.text}`,
+      },
       {
         role: "user",
-        content: `以下是剧情大纲：\n\n${oracleResult.text}\n\n`,
+        content:
+          "根据剧情大纲完成小说内容。要求与上一章节风格一致，剧情衔接得当。",
       },
     ],
     experimental_context,
@@ -211,11 +208,6 @@ async function continueStory(
       log.info(event, "weaver abort");
     },
     async onFinish(options) {
-      log.debug(
-        { oracleText: oracleResult.text, weaverText: options.text },
-        "weaver finish",
-      );
-
       const now = new Date();
       await db.insert(history).values({
         id: nanoid(),
@@ -224,7 +216,6 @@ async function continueStory(
         createdAt: now,
       });
       await onFinish(options as unknown as OnFinishEvent<ToolSet>);
-      log.debug("weaver save db finish");
     },
   });
 }
@@ -245,8 +236,7 @@ export async function continueConversation(chatId: string, prompt: string) {
   const storyData = await db.query.story.findFirst({
     where: { chatId: chatId },
   });
-  const latestMessage: MessageWithToolCall | NewMessage | undefined =
-    await getLastestChatMessage(chatId);
+  const latestMessage = await getLastestChatMessage(chatId);
 
   const recentQuestion =
     latestMessage &&
@@ -255,19 +245,18 @@ export async function continueConversation(chatId: string, prompt: string) {
       (tc) => tc.name === "createQuestion" && !tc.result,
     );
 
-  const recnetMessages: Array<MessageWithToolCall | NewMessage> = latestMessage
-    ? [latestMessage]
-    : [];
+  let recnetMessages: MessageWithToolCall | NewMessage | undefined =
+    latestMessage;
   if (recentQuestion) {
     recentQuestion.result = prompt;
   } else {
-    recnetMessages.push({
+    recnetMessages = {
       id: userMessageId,
       chatId,
       role: "user" as const,
       text: prompt,
       createdAt: now,
-    });
+    };
   }
 
   if (recentQuestion) {
@@ -290,10 +279,8 @@ export async function continueConversation(chatId: string, prompt: string) {
 
   const storyMessage = toStoryModelMessage(storyData);
   const hsitoryMessage = toHistoryModelMessage(history);
-  const inputMessages = toModelMessages(recnetMessages);
+  const inputMessages = toModelMessage(recnetMessages);
   const modelMessage = [storyMessage, hsitoryMessage, ...inputMessages];
-
-  log.debug({ chatId, prompt, latestMessage, modelMessage }, "input");
 
   const stream = createStreamableValue<UIMessageChunk>();
 

@@ -4,13 +4,17 @@ import z from "zod";
 import { createStory, saveSystemSetting } from "./story";
 
 export const dice = tool({
-  description: "扔骰子。3个16面骰子取最大点数，返回1-16的结果。",
-  inputSchema: z.object({}),
+  description: "扔骰子。2个16面骰子取最大点数，返回1-16的结果。",
+  inputSchema: z.object({
+    reason: z
+      .string()
+      .describe(
+        "扔骰子的原因/目的，例如：'主角潜行是否成功'、'说服守卫'、'战斗命中判定'等，用于区分不同的骰子结果",
+      ),
+  }),
   async execute() {
     const roll = () => Math.floor(Math.random() * 16) + 1;
-    const max = Math.max(roll(), roll(), roll());
-
-    return { max };
+    return Math.max(roll(), roll());
   },
 });
 
