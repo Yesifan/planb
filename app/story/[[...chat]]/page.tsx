@@ -43,6 +43,7 @@ export default function StoryPage() {
     error,
     createStory,
     sendMessage,
+    agentStatus,
   } = useStoryContext();
 
   const latestMessage = useMemo(
@@ -127,7 +128,7 @@ export default function StoryPage() {
               </MessageContent>
             </Message>
           ))}
-          {isStreaming && <Shimmer key={latestMessage?.id}>思考中...</Shimmer>}
+          {isStreaming && <Shimmer key={agentStatus?.agentId ?? latestMessage?.id}>{agentStatus?.statusText ?? "思考中..."}</Shimmer>}
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>

@@ -25,8 +25,20 @@ import {
 } from "@/lib/llm/utils";
 import logger from "@/lib/logger";
 
-import { ToolContext } from "../llm/type";
+import { AgentStatusEvent, ToolContext } from "../llm/type";
 import { getChatHistory, getLastestChatMessage } from "./db";
+
+interface StreamUpdater {
+  update(value: UIMessageChunk | AgentStatusEvent): void;
+  done(): void;
+}
+
+const AGENT_STATUS_TEXT = {
+  Sentinel: "正在审查输入...",
+  Oracle: "正在生成大纲...",
+  Weaver: "正在撰写故事...",
+  Archivist: "正在构建世界观...",
+} as const;
 
 export async function createStory(source: string, singularity: string) {
   const traceId = nanoid();
@@ -59,8 +71,9 @@ export async function createStory(source: string, singularity: string) {
     updatedAt: now,
   });
 
-  const stream = createStreamableValue<UIMessageChunk>();
+  const stream = createStreamableValue<UIMessageChunk | AgentStatusEvent>();
   (async () => {
+    stream.update({ type: "agent-status", agentId: "Archivist", statusText: AGENT_STATUS_TEXT.Archivist });
     const result = await archivist.stream({
       prompt,
       experimental_context: { db, chatId, traceId },
@@ -82,6 +95,7 @@ export async function createStory(source: string, singularity: string) {
       stream.update(chunk);
     }
 
+    stream.update({ type: "agent-status", agentId: null });
     stream.done();
   })();
 
@@ -97,12 +111,15 @@ async function continueCreateStory(
   messages: ModelMessage[],
   experimental_context: ToolContext,
   onFinish: (event: OnFinishEvent<ToolSet>) => Promise<void>,
+  stream: StreamUpdater,
 ) {
+  stream.update({ type: "agent-status", agentId: "Archivist", statusText: AGENT_STATUS_TEXT.Archivist });
   const archivistResult = await archivist.generate({
     prompt: messages,
     experimental_context,
   });
 
+  stream.update({ type: "agent-status", agentId: "Weaver", statusText: AGENT_STATUS_TEXT.Weaver });
   return await weaver.stream({
     prompt: [
       ...archivistResult.response.messages,
@@ -129,6 +146,7 @@ async function continueStory(
   messages: ModelMessage[],
   experimental_context: ToolContext,
   onFinish: (event: OnFinishEvent<ToolSet>) => Promise<void>,
+  stream: StreamUpdater,
 ) {
   const log = logger.child({
     traceId: experimental_context.traceId,
@@ -136,6 +154,7 @@ async function continueStory(
   });
 
   // Step 1: Sentinel 审查用户输入
+  stream.update({ type: "agent-status", agentId: "Sentinel", statusText: AGENT_STATUS_TEXT.Sentinel });
   const sentinelInputResult = await sentinel.stream({
     prompt: messages,
     experimental_context,
@@ -156,11 +175,12 @@ async function continueStory(
 
   if (rejected) {
     log.debug("Sentinel Review Rejected");
-
+    stream.update({ type: "agent-status", agentId: null });
     return sentinelInputResult;
   }
 
   // Step 2: Oracle 根据审查后的输入生成分支
+  stream.update({ type: "agent-status", agentId: "Oracle", statusText: AGENT_STATUS_TEXT.Oracle });
   const oraclePrompt = [
     ...messages.slice(0, -1),
     {
@@ -184,6 +204,7 @@ async function continueStory(
     },
   });
 
+  stream.update({ type: "agent-status", agentId: "Weaver", statusText: AGENT_STATUS_TEXT.Weaver });
   return await weaver.stream({
     prompt: [
       messages[0],
@@ -282,7 +303,7 @@ export async function continueConversation(chatId: string, prompt: string) {
   const inputMessages = toModelMessage(recnetMessages);
   const modelMessage = [storyMessage, hsitoryMessage, ...inputMessages];
 
-  const stream = createStreamableValue<UIMessageChunk>();
+  const stream = createStreamableValue<UIMessageChunk | AgentStatusEvent>();
 
   (async () => {
     const experimental_context = { db: db, chatId: chatId, traceId: traceId };
@@ -303,12 +324,14 @@ export async function continueConversation(chatId: string, prompt: string) {
           modelMessage,
           experimental_context,
           onFinish,
+          stream,
         )
       : await continueCreateStory(
           chatId,
           modelMessage,
           experimental_context,
           onFinish,
+          stream,
         );
 
     log.debug("stream ui message start");
@@ -319,6 +342,7 @@ export async function continueConversation(chatId: string, prompt: string) {
       stream.update(chunk);
     }
 
+    stream.update({ type: "agent-status", agentId: null });
     stream.done();
     log.debug("stream ui message done");
   })();

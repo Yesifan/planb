@@ -8,7 +8,7 @@ import {
   UIMessageChunk,
 } from "ai";
 
-import { MyUIMessage } from "./type";
+import { AgentStatusEvent, MyUIMessage } from "./type";
 
 type PartialToolCall = {
   text: string;
@@ -26,7 +26,7 @@ function findToolPart(
 
 export async function* streamToUIMessage(
   id: string,
-  stream: StreamableValue<UIMessageChunk>,
+  stream: StreamableValue<UIMessageChunk | AgentStatusEvent>,
 ): AsyncGenerator<MyUIMessage, MyUIMessage> {
   const message: MyUIMessage = {
     id: id ?? "",
@@ -169,6 +169,15 @@ export async function* streamToUIMessage(
       }
 
       case "finish-step": {
+        break;
+      }
+
+      case "agent-status": {
+        if (chunk.agentId !== null) {
+          message.agentStatus = { agentId: chunk.agentId, statusText: chunk.statusText };
+        } else {
+          message.agentStatus = null;
+        }
         break;
       }
     }

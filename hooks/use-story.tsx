@@ -30,6 +30,7 @@ export interface UseStoryReturn {
   messages: MyUIMessage[];
   isLoading: boolean;
   isStreaming: boolean;
+  agentStatus: { agentId: string; statusText: string } | null;
   error?: string;
   createStory: (source: string, singularity: string) => Promise<string>;
   sendMessage: (message: PromptInputMessage) => Promise<void>;
@@ -48,6 +49,7 @@ export function StoryProvider({ children }: { children: ReactNode }) {
   const [story, setStory] = useState<Story | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [agentStatus, setAgentStatus] = useState<{ agentId: string; statusText: string } | null>(null);
   const [error, setError] = useState<string | undefined>(undefined);
 
   useEffect(() => {
@@ -93,6 +95,9 @@ export function StoryProvider({ children }: { children: ReactNode }) {
         } = await createStoryAction(source, singularity);
 
         for await (const uiMessage of streamToUIMessage(messageId, newMessage)) {
+          if (uiMessage.agentStatus !== undefined) {
+            setAgentStatus(uiMessage.agentStatus);
+          }
           setMessages((prev) => {
             const without = prev.filter((m) => m.id !== messageId);
             return [...without, uiMessage];
@@ -104,6 +109,7 @@ export function StoryProvider({ children }: { children: ReactNode }) {
         return id;
       } finally {
         setIsStreaming(false);
+        setAgentStatus(null);
       }
     },
     [router],
@@ -131,6 +137,9 @@ export function StoryProvider({ children }: { children: ReactNode }) {
         );
 
         for await (const uiMessage of streamToUIMessage(messageId, newMessage)) {
+          if (uiMessage.agentStatus !== undefined) {
+            setAgentStatus(uiMessage.agentStatus);
+          }
           setMessages((prev) => {
             const without = prev.filter((m) => m.id !== messageId);
             return [...without, uiMessage];
@@ -144,6 +153,7 @@ export function StoryProvider({ children }: { children: ReactNode }) {
         }
       } finally {
         setIsStreaming(false);
+        setAgentStatus(null);
       }
     },
     [chatId],
@@ -158,6 +168,7 @@ export function StoryProvider({ children }: { children: ReactNode }) {
         story,
         isLoading,
         isStreaming,
+        agentStatus,
         error,
         createStory,
         sendMessage,

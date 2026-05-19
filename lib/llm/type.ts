@@ -7,7 +7,23 @@ import { DB } from "../db";
 import Tools from "./tool";
 
 export type MyUITools = InferUITools<typeof Tools>;
-export type MyUIMessage = UIMessage<never, UIDataTypes, MyUITools>;
+
+export type AgentStatusChunk = {
+  type: "agent-status";
+  agentId: string;
+  statusText: string;
+};
+
+export type AgentStatusChunkClear = {
+  type: "agent-status";
+  agentId: null;
+};
+
+export type AgentStatusEvent = AgentStatusChunk | AgentStatusChunkClear;
+
+export type MyUIMessage = UIMessage<never, UIDataTypes, MyUITools> & {
+  agentStatus?: { agentId: string; statusText: string } | null;
+};
 
 export type AgentId =
   | "Arbiter"
