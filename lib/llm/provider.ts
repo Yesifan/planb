@@ -4,13 +4,13 @@ import {
   createOpenAICompatible,
   OpenAICompatibleProvider,
 } from "@ai-sdk/openai-compatible";
-import { InvalidArgumentError,LanguageModel, NoSuchModelError } from "ai";
+import { InvalidArgumentError, LanguageModel, NoSuchModelError } from "ai";
 import { load } from "js-yaml";
 
 import logger from "../logger";
 import { ConfigValidationError } from "./errors";
 import { createMockProvider } from "./mock-provider";
-import { LLMConfigSchema,MockProvider, PlanbProvider, Provider } from "./type";
+import { LLMConfigSchema, MockProvider, PlanbProvider, Provider } from "./type";
 
 const PLANB_SETTINGS_PATH = process.env.PLANB_SETTINGS_PATH ?? "planb.yml";
 
@@ -30,6 +30,8 @@ if (!result.success) {
     message: result.error.message,
     cause: result.error,
   });
+} else {
+  logger.debug(result, "provider");
 }
 
 export const planbSettings = result.data;

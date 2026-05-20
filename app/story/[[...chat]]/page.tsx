@@ -36,6 +36,7 @@ export default function StoryPage() {
   const {
     chatId,
     messages,
+    streamingMessage,
     chat,
     story,
     isLoading,
@@ -47,8 +48,10 @@ export default function StoryPage() {
   } = useStoryContext();
 
   const latestMessage = useMemo(
-    () => (messages.length > 0 ? messages[messages.length - 1] : undefined),
-    [messages],
+    () =>
+      streamingMessage ??
+      (messages.length > 0 ? messages[messages.length - 1] : undefined),
+    [messages, streamingMessage],
   );
   const latestPart = useMemo(() => {
     if (latestMessage?.parts && latestMessage.parts.length > 0) {
@@ -128,7 +131,38 @@ export default function StoryPage() {
               </MessageContent>
             </Message>
           ))}
-          {isStreaming && <Shimmer key={agentStatus?.agentId ?? latestMessage?.id}>{agentStatus?.statusText ?? "思考中..."}</Shimmer>}
+          {isStreaming && (
+            <>
+              <Shimmer key={agentStatus?.agentId ?? "shimmer"}>
+                {agentStatus?.statusText ?? "思考中..."}
+              </Shimmer>
+              {streamingMessage && (
+                <Message from={streamingMessage.role} key={streamingMessage.id}>
+                  <MessageContent>
+                    {streamingMessage.parts.map((part, i) => {
+                      switch (part.type) {
+                        case "text":
+                          return (
+                            <MessageResponse
+                              key={`${streamingMessage.id}-${i}`}
+                            >
+                              {part.text}
+                            </MessageResponse>
+                          );
+                        case "tool-rejectInput":
+                          return (
+                            <StoryRejection
+                              key={`${streamingMessage.id}-${i}`}
+                              reason={part.input?.reason ?? ""}
+                            />
+                          );
+                      }
+                    })}
+                  </MessageContent>
+                </Message>
+              )}
+            </>
+          )}
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>

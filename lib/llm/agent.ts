@@ -154,7 +154,7 @@ export class PlanbAgent<
 
       return result;
     } catch (error) {
-      log.error({ error }, "agent.generate.error");
+      log.error({ error }, "agent generate");
       throw error;
     }
   }
