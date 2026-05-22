@@ -110,6 +110,47 @@ export async function getLastestChatMessage(chatId: string) {
   });
 }
 
+export async function getUserChats(options?: {
+  cursor?: { updatedAt: Date; id: string };
+  limit?: number;
+}) {
+  const session = await getSessionWithRedirect();
+  const userId = session.user.id;
+  const limit = options?.limit ?? 20;
+  const cursor = options?.cursor;
+
+  const chats = await db.query.chat.findMany({
+    where: {
+      userId,
+      ...(cursor && {
+        OR: [
+          { updatedAt: { lt: cursor.updatedAt } },
+          {
+            AND: [
+              { updatedAt: { eq: cursor.updatedAt } },
+              { id: { lt: cursor.id } },
+            ],
+          },
+        ],
+      }),
+    },
+    orderBy: {
+      updatedAt: "desc",
+      id: "desc",
+    },
+    limit: limit + 1,
+  });
+
+  const hasMore = chats.length > limit;
+  const items = hasMore ? chats.slice(0, limit) : chats;
+  const last = items.at(-1);
+  const nextCursor = hasMore && last
+    ? { updatedAt: last.updatedAt, id: last.id }
+    : null;
+
+  return { chats: items, nextCursor };
+}
+
 export async function getChatHistory(chatId: string, limit = 100, offset = 0) {
   const session = await getSessionWithRedirect();
   const chat = await db.query.chat.findFirst({

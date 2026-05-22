@@ -29,6 +29,7 @@ import StorySetting from "@/components/story-setting";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
 import { useStoryContext } from "@/hooks/use-story";
+import { useStoryLayout } from "@/hooks/use-story-layout";
 import type { CreateQuestion } from "@/lib/llm/tool";
 
 export default function StoryPage() {
@@ -46,6 +47,7 @@ export default function StoryPage() {
     sendMessage,
     agentStatus,
   } = useStoryContext();
+  const { refreshChatList } = useStoryLayout();
 
   const latestMessage = useMemo(
     () =>
@@ -71,88 +73,52 @@ export default function StoryPage() {
 
   const onCreate = async (values: z.infer<typeof createStoryFormSchema>) => {
     await createStory(values.source, values.singularity);
+    refreshChatList();
   };
 
-  if (!chatId) {
-    return <CreateStoryForm onSubmit={onCreate} />;
-  }
-
-  if (isLoading) {
-    return (
-      <div className="flex h-screen flex-col items-center justify-center gap-4">
-        <Spinner className="size-8" />
-        <span className="text-muted-foreground">加载中...</span>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex h-screen flex-col items-center justify-center p-6">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>加载失败</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <p className="text-muted-foreground">{error}</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex h-screen flex-col overflow-hidden">
-      <StoryHeader chat={chat} />
-      <StorySetting story={story} />
+    <div className="flex flex-1 flex-col overflow-hidden">
+      {!chatId && <CreateStoryForm onSubmit={onCreate} />}
+      {isLoading && (
+        <div className="flex h-screen flex-col items-center justify-center gap-4">
+          <Spinner className="size-8" />
+          <span className="text-muted-foreground">加载中...</span>
+        </div>
+      )}
+      {error && (
+        <div className="flex h-screen flex-col items-center justify-center p-6">
+          <Card className="w-full max-w-md">
+            <CardHeader>
+              <CardTitle>加载失败</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <p className="text-muted-foreground">{error}</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+      {chatId && !isLoading && !error && (
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <StoryHeader chat={chat} />
+          <StorySetting story={story} />
 
-      <Conversation className="flex-1">
-        <ConversationContent className="w-full md:w-3xl">
-          {messages.map((message) => (
-            <Message from={message.role} key={message.id}>
-              <MessageContent>
-                {message.parts.map((part, i) => {
-                  switch (part.type) {
-                    case "text":
-                      return (
-                        <MessageResponse key={`${message.id}-${i}`}>
-                          {part.text}
-                        </MessageResponse>
-                      );
-                    case "tool-rejectInput":
-                      return (
-                        <StoryRejection
-                          key={`${message.id}-${i}`}
-                          reason={part.input?.reason ?? ""}
-                        />
-                      );
-                  }
-                })}
-              </MessageContent>
-            </Message>
-          ))}
-          {isStreaming && (
-            <>
-              <Shimmer key={agentStatus?.agentId ?? "shimmer"}>
-                {agentStatus?.statusText ?? "思考中..."}
-              </Shimmer>
-              {streamingMessage && (
-                <Message from={streamingMessage.role} key={streamingMessage.id}>
+          <Conversation className="flex-1">
+            <ConversationContent className="w-full md:w-3xl">
+              {messages.map((message) => (
+                <Message from={message.role} key={message.id}>
                   <MessageContent>
-                    {streamingMessage.parts.map((part, i) => {
+                    {message.parts.map((part, i) => {
                       switch (part.type) {
                         case "text":
                           return (
-                            <MessageResponse
-                              key={`${streamingMessage.id}-${i}`}
-                            >
+                            <MessageResponse key={`${message.id}-${i}`}>
                               {part.text}
                             </MessageResponse>
                           );
                         case "tool-rejectInput":
                           return (
                             <StoryRejection
-                              key={`${streamingMessage.id}-${i}`}
+                              key={`${message.id}-${i}`}
                               reason={part.input?.reason ?? ""}
                             />
                           );
@@ -160,29 +126,66 @@ export default function StoryPage() {
                     })}
                   </MessageContent>
                 </Message>
+              ))}
+              {isStreaming && (
+                <>
+                  <Shimmer key={agentStatus?.agentId ?? "shimmer"}>
+                    {agentStatus?.statusText ?? "思考中..."}
+                  </Shimmer>
+                  {streamingMessage && (
+                    <Message
+                      from={streamingMessage.role}
+                      key={streamingMessage.id}
+                    >
+                      <MessageContent>
+                        {streamingMessage.parts.map((part, i) => {
+                          switch (part.type) {
+                            case "text":
+                              return (
+                                <MessageResponse
+                                  key={`${streamingMessage.id}-${i}`}
+                                >
+                                  {part.text}
+                                </MessageResponse>
+                              );
+                            case "tool-rejectInput":
+                              return (
+                                <StoryRejection
+                                  key={`${streamingMessage.id}-${i}`}
+                                  reason={part.input?.reason ?? ""}
+                                />
+                              );
+                          }
+                        })}
+                      </MessageContent>
+                    </Message>
+                  )}
+                </>
               )}
-            </>
+            </ConversationContent>
+            <ConversationScrollButton />
+          </Conversation>
+          {question ? (
+            <StoryQuestion
+              question={question}
+              onSubmit={sendMessage}
+              className="my-4"
+            />
+          ) : (
+            <StoryPrompt
+              input={input}
+              onInputChange={setInput}
+              onSubmit={sendMessage}
+              disabled={isStreaming}
+              className="relative mx-auto w-full"
+            >
+              <StoryPromptInput placeholder="说点什么..." />
+              <StoryPromptSubmit
+                status={isStreaming ? "streaming" : undefined}
+              />
+            </StoryPrompt>
           )}
-        </ConversationContent>
-        <ConversationScrollButton />
-      </Conversation>
-      {question ? (
-        <StoryQuestion
-          question={question}
-          onSubmit={sendMessage}
-          className="my-4"
-        />
-      ) : (
-        <StoryPrompt
-          input={input}
-          onInputChange={setInput}
-          onSubmit={sendMessage}
-          disabled={isStreaming}
-          className="relative mx-auto w-full"
-        >
-          <StoryPromptInput placeholder="说点什么..." />
-          <StoryPromptSubmit status={isStreaming ? "streaming" : undefined} />
-        </StoryPrompt>
+        </div>
       )}
     </div>
   );
