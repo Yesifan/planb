@@ -1,7 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-
 import StorySidebar from "@/components/story-sidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { useChatList } from "@/hooks/use-chat-list";
@@ -14,7 +12,6 @@ export default function StoryLayout({
   children: React.ReactNode;
 }) {
   const chatList = useChatList();
-  const router = useRouter();
 
   return (
     <StoryProvider>
@@ -26,7 +23,6 @@ export default function StoryLayout({
             isLoading={chatList.isLoading}
             isLoadingMore={chatList.isLoadingMore}
             onLoadMore={chatList.loadMore}
-            onNewStory={() => router.push("/story")}
             error={chatList.error}
           />
           {children}

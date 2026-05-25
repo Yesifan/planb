@@ -11,8 +11,12 @@ import { MyUIMessage } from "./type";
 
 export function toUIMessages(messages: MessageWithToolCall[]): MyUIMessage[] {
   return messages.map((message) => {
-    const parts: MyUIMessage["parts"] =
-      message?.toolCalls?.map(
+    const parts: MyUIMessage["parts"] = [];
+    if (message.text.length > 0) {
+      parts.push({ type: "text", text: message.text });
+    }
+    parts.push(
+      ...(message?.toolCalls?.map(
         (tool) =>
           ({
             type: `tool-${tool.name}`,
@@ -22,11 +26,8 @@ export function toUIMessages(messages: MessageWithToolCall[]): MyUIMessage[] {
             input: tool.input,
             output: tool.result,
           }) as unknown as MyUIMessage["parts"][number],
-      ) ?? [];
-
-    if (message.text.length > 0) {
-      parts.push({ type: "text", text: message.text });
-    }
+      ) ?? []),
+    );
 
     return {
       id: message.id,
@@ -99,14 +100,12 @@ export function toModelMessages(
 
 export function toHistoryModelMessage(history: History[]): ModelMessage {
   const content =
-    history.length === 0 ? "（暂无历史记录）" : history.map((h) => h.content).join("\n\n---\n\n");
+    history.length === 0
+      ? "（暂无历史记录）"
+      : history.map((h) => h.content).join("\n\n---\n\n");
   return {
     role: "system",
-    content: [
-      "# 故事设定",
-      "## 历史年表",
-      content,
-    ].join("\n"),
+    content: ["# 故事设定", "## 历史年表", content].join("\n"),
   };
 }
 

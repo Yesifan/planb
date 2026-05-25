@@ -1,5 +1,3 @@
-import { Separator } from "@/components/ui/separator";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Chat } from "@/lib/db/schema";
 import { formatRelativeTime } from "@/lib/utils";
 
@@ -7,8 +5,6 @@ export default function StoryHeader({ chat }: { chat?: Chat }) {
   return (
     <header className="bg-background/95 supports-backdrop-filter:bg-background/60 sticky top-0 z-10 border-b backdrop-blur">
       <div className="mx-auto flex max-w-3xl items-center gap-2 px-4 py-4">
-        <SidebarTrigger />
-        <Separator orientation="vertical" className="mr-2 h-4" />
         <div className="flex flex-1 items-center justify-between">
           <div className="flex flex-col">
             <h1 className="font-heading truncate text-lg font-semibold">

@@ -5,7 +5,6 @@ tools:
   - createStory
   - createQuestion
   - exMachina
-toolChoice: required
 stopWhen:
   hasToolCall:
     - createStory

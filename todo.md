@@ -1,0 +1,5 @@
+- 切换chat时 streamingstatus 未重置
+- 没有retry
+- 没有 copy
+- 主角五维系统
+- 世界当前快照系统

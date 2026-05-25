@@ -27,6 +27,7 @@ import StoryQuestion from "@/components/story-question";
 import StoryRejection from "@/components/story-rejection";
 import StorySetting from "@/components/story-setting";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Spinner } from "@/components/ui/spinner";
 import { useStoryContext } from "@/hooks/use-story";
 import { useStoryLayout } from "@/hooks/use-story-layout";
@@ -45,6 +46,7 @@ export default function StoryPage() {
     error,
     createStory,
     sendMessage,
+    retryGeneration,
     agentStatus,
   } = useStoryContext();
   const { refreshChatList } = useStoryLayout();
@@ -71,13 +73,30 @@ export default function StoryPage() {
     }
   }, [latestPart]);
 
+  const answeredQuestion = useMemo(() => {
+    if (isStreaming) return;
+    if (!latestMessage || latestMessage.role !== "assistant") return;
+    if (!latestPart || latestPart.type !== "tool-createQuestion") return;
+    const part = latestPart as {
+      type: "tool-createQuestion";
+      input: CreateQuestion;
+      output?: unknown;
+    };
+    if (!part.output) return;
+    return {
+      question: part.input,
+      output: String(part.output),
+    };
+  }, [latestMessage, latestPart, isStreaming]);
+
   const onCreate = async (values: z.infer<typeof createStoryFormSchema>) => {
     await createStory(values.source, values.singularity);
     refreshChatList();
   };
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
+    <div className="relative flex flex-1 flex-col overflow-hidden">
+      <SidebarTrigger className="bg-background/80 hover:bg-accent/10 absolute top-3 left-3 z-50 rounded-full shadow-sm backdrop-blur" />
       {!chatId && <CreateStoryForm onSubmit={onCreate} />}
       {isLoading && (
         <div className="flex h-screen flex-col items-center justify-center gap-4">
@@ -168,6 +187,14 @@ export default function StoryPage() {
           {question ? (
             <StoryQuestion
               question={question}
+              onSubmit={sendMessage}
+              className="my-4"
+            />
+          ) : answeredQuestion ? (
+            <StoryQuestion
+              question={answeredQuestion.question}
+              answer={answeredQuestion.output}
+              onRetry={retryGeneration}
               onSubmit={sendMessage}
               className="my-4"
             />

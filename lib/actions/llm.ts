@@ -4,6 +4,7 @@ import { createStreamableValue } from "@ai-sdk/rsc";
 import type { ModelMessage, OnFinishEvent, ToolSet, UIMessageChunk } from "ai";
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
+import type { Logger } from "pino";
 
 import { getSessionWithRedirect } from "@/lib/auth/server";
 import { db } from "@/lib/db";
@@ -73,7 +74,12 @@ export async function createStory(source: string, singularity: string) {
 
   const stream = createStreamableValue<UIMessageChunk | AgentStatusEvent>();
   (async () => {
-    stream.update({ type: "agent-status", agentId: "Archivist", statusText: AGENT_STATUS_TEXT.Archivist });
+    stream.update({
+      type: "agent-status",
+      agentId: "Archivist",
+      statusText: AGENT_STATUS_TEXT.Archivist,
+    });
+
     const result = await archivist.stream({
       prompt,
       experimental_context: { db, chatId, traceId },
@@ -113,13 +119,21 @@ async function continueCreateStory(
   onFinish: (event: OnFinishEvent<ToolSet>) => Promise<void>,
   stream: StreamUpdater,
 ) {
-  stream.update({ type: "agent-status", agentId: "Archivist", statusText: AGENT_STATUS_TEXT.Archivist });
+  stream.update({
+    type: "agent-status",
+    agentId: "Archivist",
+    statusText: AGENT_STATUS_TEXT.Archivist,
+  });
   const archivistResult = await archivist.generate({
     prompt: messages,
     experimental_context,
   });
 
-  stream.update({ type: "agent-status", agentId: "Weaver", statusText: AGENT_STATUS_TEXT.Weaver });
+  stream.update({
+    type: "agent-status",
+    agentId: "Weaver",
+    statusText: AGENT_STATUS_TEXT.Weaver,
+  });
   return await weaver.stream({
     prompt: [
       ...archivistResult.response.messages,
@@ -154,7 +168,11 @@ async function continueStory(
   });
 
   // Step 1: Sentinel 审查用户输入
-  stream.update({ type: "agent-status", agentId: "Sentinel", statusText: AGENT_STATUS_TEXT.Sentinel });
+  stream.update({
+    type: "agent-status",
+    agentId: "Sentinel",
+    statusText: AGENT_STATUS_TEXT.Sentinel,
+  });
   const sentinelInputResult = await sentinel.stream({
     prompt: messages,
     experimental_context,
@@ -180,7 +198,11 @@ async function continueStory(
   }
 
   // Step 2: Oracle 根据审查后的输入生成分支
-  stream.update({ type: "agent-status", agentId: "Oracle", statusText: AGENT_STATUS_TEXT.Oracle });
+  stream.update({
+    type: "agent-status",
+    agentId: "Oracle",
+    statusText: AGENT_STATUS_TEXT.Oracle,
+  });
   const oraclePrompt = [
     ...messages.slice(0, -1),
     {
@@ -204,7 +226,11 @@ async function continueStory(
     },
   });
 
-  stream.update({ type: "agent-status", agentId: "Weaver", statusText: AGENT_STATUS_TEXT.Weaver });
+  stream.update({
+    type: "agent-status",
+    agentId: "Weaver",
+    statusText: AGENT_STATUS_TEXT.Weaver,
+  });
   return await weaver.stream({
     prompt: [
       messages[0],
@@ -239,6 +265,75 @@ async function continueStory(
       await onFinish(options as unknown as OnFinishEvent<ToolSet>);
     },
   });
+}
+
+type StoryData = NonNullable<
+  Awaited<ReturnType<typeof db.query.story.findFirst>>
+>;
+
+function runGenerationStream({
+  chatId,
+  traceId,
+  modelMessage,
+  storyData,
+  log,
+}: {
+  chatId: string;
+  traceId: string;
+  modelMessage: ModelMessage[];
+  storyData: StoryData | undefined;
+  log: Logger;
+}) {
+  const stream = createStreamableValue<UIMessageChunk | AgentStatusEvent>();
+
+  (async () => {
+    const experimental_context = { db, chatId, traceId };
+    const onFinish = async (
+      event: Parameters<typeof saveMessageWithTool>[1],
+    ) => {
+      const now = new Date();
+      const assistantMessageId = nanoid();
+      await db.update(chat).set({ updatedAt: now }).where(eq(chat.id, chatId));
+      await saveMessageWithTool(assistantMessageId, event, {
+        db,
+        chatId,
+        traceId,
+      });
+    };
+
+    const isSettingComplete =
+      storyData?.type && storyData?.describe && storyData?.worldview;
+
+    const result = isSettingComplete
+      ? await continueStory(
+          chatId,
+          modelMessage,
+          experimental_context,
+          onFinish,
+          stream,
+        )
+      : await continueCreateStory(
+          chatId,
+          modelMessage,
+          experimental_context,
+          onFinish,
+          stream,
+        );
+
+    log.debug("stream ui message start");
+
+    const uiMessages = result.toUIMessageStream();
+
+    for await (const chunk of uiMessages) {
+      stream.update(chunk);
+    }
+
+    stream.update({ type: "agent-status", agentId: null });
+    stream.done();
+    log.debug("stream ui message done");
+  })();
+
+  return stream;
 }
 
 export async function continueConversation(chatId: string, prompt: string) {
@@ -295,61 +390,76 @@ export async function continueConversation(chatId: string, prompt: string) {
     });
   }
 
-  const isSettingComplete =
-    storyData?.type && storyData?.describe && storyData?.worldview;
-
   const storyMessage = toStoryModelMessage(storyData);
   const hsitoryMessage = toHistoryModelMessage(history);
   const inputMessages = toModelMessage(recnetMessages);
   const modelMessage = [storyMessage, hsitoryMessage, ...inputMessages];
 
-  const stream = createStreamableValue<UIMessageChunk | AgentStatusEvent>();
-
-  (async () => {
-    const experimental_context = { db: db, chatId: chatId, traceId: traceId };
-    const onFinish = async (
-      event: Parameters<typeof saveMessageWithTool>[1],
-    ) => {
-      const assistantMessageId = nanoid();
-      await saveMessageWithTool(assistantMessageId, event, {
-        db,
-        chatId,
-        traceId,
-      });
-    };
-
-    const result = isSettingComplete
-      ? await continueStory(
-          chatId,
-          modelMessage,
-          experimental_context,
-          onFinish,
-          stream,
-        )
-      : await continueCreateStory(
-          chatId,
-          modelMessage,
-          experimental_context,
-          onFinish,
-          stream,
-        );
-
-    log.debug("stream ui message start");
-
-    const uiMessages = result.toUIMessageStream();
-
-    for await (const chunk of uiMessages) {
-      stream.update(chunk);
-    }
-
-    stream.update({ type: "agent-status", agentId: null });
-    stream.done();
-    log.debug("stream ui message done");
-  })();
+  const stream = runGenerationStream({
+    chatId,
+    traceId,
+    modelMessage,
+    storyData,
+    log,
+  });
 
   return {
     id: chatId,
     messageId: userMessageId,
+    content: stream.value,
+  };
+}
+
+export async function retryLastGeneration(chatId: string) {
+  const traceId = nanoid();
+  const log = logger.child({ traceId, action: "retryLastGeneration" });
+
+  await getSessionWithRedirect();
+
+  log.info({ chatId }, "Input");
+
+  const history = await getChatHistory(chatId);
+  const storyData = await db.query.story.findFirst({
+    where: { chatId: chatId },
+  });
+  const latestMessage = await getLastestChatMessage(chatId);
+
+  if (!latestMessage) {
+    throw new Error("retryLastGeneration: latest message not found");
+  }
+  if (latestMessage.role !== "assistant") {
+    throw new Error("retryLastGeneration: latest message is not assistant");
+  }
+  const answeredQuestion =
+    "toolCalls" in latestMessage &&
+    latestMessage.toolCalls?.find(
+      (tc) => tc.name === "createQuestion" && tc.result,
+    );
+  if (!answeredQuestion) {
+    throw new Error(
+      "retryLastGeneration: no answered createQuestion tool call found",
+    );
+  }
+
+  const storyMessage = toStoryModelMessage(storyData);
+  const hsitoryMessage = toHistoryModelMessage(history);
+  const modelMessage = [
+    storyMessage,
+    hsitoryMessage,
+    ...toModelMessage(latestMessage),
+  ];
+
+  const stream = runGenerationStream({
+    chatId,
+    traceId,
+    modelMessage,
+    storyData,
+    log,
+  });
+
+  return {
+    id: chatId,
+    messageId: nanoid(),
     content: stream.value,
   };
 }
