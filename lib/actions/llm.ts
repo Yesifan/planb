@@ -20,6 +20,11 @@ import {
 import { archivist, oracle, sentinel, weaver } from "@/lib/llm";
 import { saveMessageWithTool } from "@/lib/llm/db";
 import {
+  AccessDeniedError,
+  InvalidInputError,
+  MessageNotFoundError,
+} from "@/lib/llm/errors";
+import {
   toHistoryModelMessage,
   toModelMessage,
   toStoryModelMessage,
@@ -28,6 +33,33 @@ import logger from "@/lib/logger";
 
 import { AgentStatusEvent, ToolContext } from "../llm/type";
 import { getChatHistory, getLastestChatMessage } from "./db";
+
+async function ensureChatAccess(chatId: string, userId: string) {
+  const found = await db.query.chat.findFirst({
+    where: { id: chatId },
+    columns: { id: true, userId: true },
+  });
+  if (!found) {
+    throw new MessageNotFoundError({
+      message: `Chat ${chatId} not found`,
+      chatId,
+    });
+  }
+  if (found.userId !== userId) {
+    throw new AccessDeniedError({ resource: "chat", resourceId: chatId });
+  }
+}
+
+function makeStreamOnError(
+  log: Logger,
+  stream: StreamUpdater,
+  agentName: string,
+) {
+  return ({ error }: { error: unknown }) => {
+    log.error({ error, agentName }, "agent.stream.onError");
+    stream.update({ type: "agent-status", agentId: null });
+  };
+}
 
 interface StreamUpdater {
   update(value: UIMessageChunk | AgentStatusEvent): void;
@@ -40,6 +72,12 @@ const AGENT_STATUS_TEXT = {
   Weaver: "正在撰写故事...",
   Archivist: "正在构建世界观...",
 } as const;
+
+const ORACLE_TOOL_STATUS: Record<string, string> = {
+  dice: "正在判定骰子...",
+  reviewBranch: "正在审查分支...",
+  activateSystem: "正在激活系统...",
+};
 
 export async function createStory(source: string, singularity: string) {
   const traceId = nanoid();
@@ -74,35 +112,43 @@ export async function createStory(source: string, singularity: string) {
 
   const stream = createStreamableValue<UIMessageChunk | AgentStatusEvent>();
   (async () => {
-    stream.update({
-      type: "agent-status",
-      agentId: "Archivist",
-      statusText: AGENT_STATUS_TEXT.Archivist,
-    });
+    try {
+      stream.update({
+        type: "agent-status",
+        agentId: "Archivist",
+        statusText: AGENT_STATUS_TEXT.Archivist,
+      });
 
-    const result = await archivist.stream({
-      prompt,
-      experimental_context: { db, chatId, traceId },
-      onFinish(event) {
-        saveMessageWithTool(
-          messageId,
-          event as unknown as OnFinishEvent<ToolSet>,
-          { db, chatId, traceId },
-        );
-      },
-      onError({ error }) {
-        log.error({ error }, "action.createStory.error");
-      },
-    });
+      const result = await archivist.stream({
+        prompt,
+        experimental_context: { db, chatId, traceId },
+        async onFinish(event) {
+          try {
+            await saveMessageWithTool(
+              messageId,
+              event as unknown as OnFinishEvent<ToolSet>,
+              { db, chatId, traceId },
+            );
+          } catch (error) {
+            log.error({ error }, "saveMessageWithTool.failed");
+          }
+        },
+        onError: makeStreamOnError(log, stream, "Archivist"),
+      });
 
-    const uiMessages = result.toUIMessageStream();
+      const uiMessages = result.toUIMessageStream();
 
-    for await (const chunk of uiMessages) {
-      stream.update(chunk);
+      for await (const chunk of uiMessages) {
+        stream.update(chunk);
+      }
+
+      stream.update({ type: "agent-status", agentId: null });
+      stream.done();
+    } catch (error) {
+      log.error({ error }, "createStory.stream.failed");
+      stream.update({ type: "agent-status", agentId: null });
+      stream.error(error);
     }
-
-    stream.update({ type: "agent-status", agentId: null });
-    stream.done();
   })();
 
   return {
@@ -119,13 +165,23 @@ async function continueCreateStory(
   onFinish: (event: OnFinishEvent<ToolSet>) => Promise<void>,
   stream: StreamUpdater,
 ) {
+  const log = logger.child({
+    traceId: experimental_context.traceId,
+    action: "continueCreateStory",
+  });
   stream.update({
     type: "agent-status",
     agentId: "Archivist",
     statusText: AGENT_STATUS_TEXT.Archivist,
   });
   const archivistResult = await archivist.generate({
-    prompt: messages,
+    prompt: [
+      {
+        role: "user",
+        content: "请根据设定的故事背景和特异点，生成设定并提问。",
+      },
+      ...messages,
+    ],
     experimental_context,
   });
 
@@ -138,20 +194,21 @@ async function continueCreateStory(
     prompt: [
       ...archivistResult.response.messages,
       {
-        role: "system",
+        role: "user",
         content:
           "根据故事世界观和背景生成故事开端。必须详细描写特异点的前因以及特异点是如何发生的。在描述的结尾自然的留一个扣子，让用户和这个世界进行交互！",
       },
     ],
     experimental_context,
     onFinish,
+    onError: makeStreamOnError(log, stream, "Weaver"),
   });
 }
 
 /**
  * 主流程：Sentinel → Oracle(内部含 Arbiter 审查循环) → Weaver
  *
- * 1. Sentinel 审查用户输入 — 不合理则 rejectInput，合理则转化为历史年表
+ * 1. Sentinel 审查用户输入 — 通过 judgeInput 工具给出 approve/reject 判定
  * 2. Oracle 根据审查后的输入生成分支剧情（内部通过 reviewBranch/dice/activateSystem 工具完成审查和调度）
  * 3. Weaver 将审核通过的历史年表扩写为小说正文
  */
@@ -177,22 +234,30 @@ async function continueStory(
     prompt: messages,
     experimental_context,
     async onFinish(event) {
-      const wasRejected = event.toolCalls.some(
-        (tc) => tc.toolName === "rejectInput",
+      const hasJudgement = event.toolCalls.some(
+        (tc) => tc.toolName === "judgeInput",
       );
-      if (wasRejected) {
+      if (hasJudgement) {
         await onFinish(event as unknown as OnFinishEvent<ToolSet>);
       }
     },
+    onError: makeStreamOnError(log, stream, "Sentinel"),
   });
 
-  // 检查是否被 rejectInput tool 拒绝
-  const rejected = (await sentinelInputResult.steps).some((step) =>
-    step.toolCalls.some((tc) => tc.toolName === "rejectInput"),
-  );
+  const judgement = (await sentinelInputResult.toolCalls)
+    .filter((tc) => tc.toolName === "judgeInput")
+    .at(-1)?.input as
+    | { decision: "approve" | "reject"; content: string }
+    | undefined;
 
-  if (rejected) {
-    log.debug("Sentinel Review Rejected");
+  if (!judgement) {
+    log.error("Sentinel did not call judgeInput");
+    stream.update({ type: "agent-status", agentId: null });
+    return sentinelInputResult;
+  }
+
+  if (judgement.decision === "reject") {
+    log.debug({ reason: judgement.content }, "Sentinel Review Rejected");
     stream.update({ type: "agent-status", agentId: null });
     return sentinelInputResult;
   }
@@ -207,14 +272,27 @@ async function continueStory(
     ...messages.slice(0, -1),
     {
       role: "user",
-      content: await sentinelInputResult.text,
+      content: judgement.content,
     } as ModelMessage,
   ];
 
-  const oracleResult = await oracle.generate({
+  const oracleResult = await oracle.stream({
     prompt: oraclePrompt,
     experimental_context,
+    onStepFinish(step) {
+      const toolName = step.toolCalls[0]?.toolName;
+      if (toolName && ORACLE_TOOL_STATUS[toolName]) {
+        stream.update({
+          type: "agent-status",
+          agentId: "Oracle",
+          statusText: ORACLE_TOOL_STATUS[toolName],
+        });
+      }
+    },
+    onError: makeStreamOnError(log, stream, "Oracle"),
   });
+
+  const oracleText = await oracleResult.text;
 
   const latestMessage = await db.query.message.findFirst({
     where: {
@@ -231,18 +309,17 @@ async function continueStory(
     agentId: "Weaver",
     statusText: AGENT_STATUS_TEXT.Weaver,
   });
+
+  const latestChapter = latestMessage
+    ? `以下是上一章节的内容：\n\n${latestMessage.text}\n\n`
+    : "";
+
   return await weaver.stream({
     prompt: [
       messages[0],
       {
-        role: "system",
-        content: latestMessage
-          ? "以下是上一章节的内容：\n\n" + latestMessage.text
-          : "",
-      },
-      {
-        role: "system",
-        content: `以下是剧情大纲：\n\n${oracleResult.text}`,
+        role: "assistant",
+        content: latestChapter + `以下是剧情大纲：\n\n${oracleText}`,
       },
       {
         role: "user",
@@ -253,13 +330,15 @@ async function continueStory(
     experimental_context,
     onAbort(event) {
       log.info(event, "weaver abort");
+      stream.update({ type: "agent-status", agentId: null });
     },
+    onError: makeStreamOnError(log, stream, "Weaver"),
     async onFinish(options) {
       const now = new Date();
       await db.insert(history).values({
         id: nanoid(),
         chatId: chatId,
-        content: oracleResult.text,
+        content: oracleText,
         createdAt: now,
       });
       await onFinish(options as unknown as OnFinishEvent<ToolSet>);
@@ -267,84 +346,18 @@ async function continueStory(
   });
 }
 
-type StoryData = NonNullable<
-  Awaited<ReturnType<typeof db.query.story.findFirst>>
->;
-
-function runGenerationStream({
-  chatId,
-  traceId,
-  modelMessage,
-  storyData,
-  log,
-}: {
-  chatId: string;
-  traceId: string;
-  modelMessage: ModelMessage[];
-  storyData: StoryData | undefined;
-  log: Logger;
-}) {
-  const stream = createStreamableValue<UIMessageChunk | AgentStatusEvent>();
-
-  (async () => {
-    const experimental_context = { db, chatId, traceId };
-    const onFinish = async (
-      event: Parameters<typeof saveMessageWithTool>[1],
-    ) => {
-      const now = new Date();
-      const assistantMessageId = nanoid();
-      await db.update(chat).set({ updatedAt: now }).where(eq(chat.id, chatId));
-      await saveMessageWithTool(assistantMessageId, event, {
-        db,
-        chatId,
-        traceId,
-      });
-    };
-
-    const isSettingComplete =
-      storyData?.type && storyData?.describe && storyData?.worldview;
-
-    const result = isSettingComplete
-      ? await continueStory(
-          chatId,
-          modelMessage,
-          experimental_context,
-          onFinish,
-          stream,
-        )
-      : await continueCreateStory(
-          chatId,
-          modelMessage,
-          experimental_context,
-          onFinish,
-          stream,
-        );
-
-    log.debug("stream ui message start");
-
-    const uiMessages = result.toUIMessageStream();
-
-    for await (const chunk of uiMessages) {
-      stream.update(chunk);
-    }
-
-    stream.update({ type: "agent-status", agentId: null });
-    stream.done();
-    log.debug("stream ui message done");
-  })();
-
-  return stream;
-}
-
 export async function continueConversation(chatId: string, prompt: string) {
   if (prompt.trim().length === 0) {
-    throw new Error("input is empty!");
+    throw new InvalidInputError({ message: "input is empty!" });
   }
   const traceId = nanoid();
   const log = logger.child({ traceId, action: "continueConversation" });
   const userMessageId = nanoid();
 
   const now = new Date();
+
+  const session = await getSessionWithRedirect();
+  await ensureChatAccess(chatId, session.user.id);
 
   log.info({ chatId, prompt }, "Input");
 
@@ -375,91 +388,97 @@ export async function continueConversation(chatId: string, prompt: string) {
     };
   }
 
-  if (recentQuestion) {
-    await db
-      .update(toolCall)
-      .set({ result: prompt })
-      .where(eq(toolCall.id, recentQuestion.id));
-  } else {
-    await db.insert(message).values({
-      id: userMessageId,
-      chatId,
-      role: "user" as const,
-      text: prompt,
-      createdAt: now,
-    });
-  }
-
   const storyMessage = toStoryModelMessage(storyData);
-  const hsitoryMessage = toHistoryModelMessage(history);
+  const historyMessage = toHistoryModelMessage(history);
   const inputMessages = toModelMessage(recnetMessages);
-  const modelMessage = [storyMessage, hsitoryMessage, ...inputMessages];
+  const modelMessage = [storyMessage, historyMessage, ...inputMessages].filter(
+    (m) => m !== undefined,
+  );
 
-  const stream = runGenerationStream({
-    chatId,
-    traceId,
-    modelMessage,
-    storyData,
-    log,
-  });
+  log.debug(
+    { recnetMessages, inputMessages, modelMessage },
+    "model message input",
+  );
+
+  const stream = createStreamableValue<UIMessageChunk | AgentStatusEvent>();
+
+  (async () => {
+    const experimental_context = { db, chatId, traceId };
+    const onFinish = async (
+      event: Parameters<typeof saveMessageWithTool>[1],
+    ) => {
+      try {
+        const assistantMessageId = nanoid();
+        if (recentQuestion) {
+          await db
+            .update(toolCall)
+            .set({ result: prompt })
+            .where(eq(toolCall.id, recentQuestion.id));
+        } else {
+          await db.insert(message).values({
+            id: userMessageId,
+            chatId,
+            role: "user" as const,
+            text: prompt,
+            createdAt: now,
+          });
+        }
+        await db
+          .update(chat)
+          .set({ updatedAt: new Date() })
+          .where(eq(chat.id, chatId));
+        await saveMessageWithTool(assistantMessageId, event, {
+          db,
+          chatId,
+          traceId,
+        });
+      } catch (error) {
+        log.error({ error }, "continueConversation.onFinish.failed");
+      }
+    };
+
+    try {
+      const isSettingComplete =
+        storyData?.type && storyData?.describe && storyData?.worldview;
+
+      const result = isSettingComplete
+        ? await continueStory(
+            chatId,
+            modelMessage,
+            experimental_context,
+            onFinish,
+            stream,
+          )
+        : await continueCreateStory(
+            chatId,
+            modelMessage,
+            experimental_context,
+            onFinish,
+            stream,
+          );
+
+      log.debug("stream ui message start");
+
+      const uiMessages = result.toUIMessageStream();
+
+      for await (const chunk of uiMessages) {
+        stream.update(chunk);
+      }
+
+      stream.update({ type: "agent-status", agentId: null });
+      stream.done();
+      log.debug("stream ui message done");
+    } catch (error) {
+      log.error({ error }, "continueConversation.stream.failed");
+      log.error({ modelMessage }, "continueConversation.stream.failed.input");
+      stream.update({ type: "agent-status", agentId: null });
+      stream.error(error);
+    }
+  })();
 
   return {
     id: chatId,
     messageId: userMessageId,
-    content: stream.value,
-  };
-}
-
-export async function retryLastGeneration(chatId: string) {
-  const traceId = nanoid();
-  const log = logger.child({ traceId, action: "retryLastGeneration" });
-
-  await getSessionWithRedirect();
-
-  log.info({ chatId }, "Input");
-
-  const history = await getChatHistory(chatId);
-  const storyData = await db.query.story.findFirst({
-    where: { chatId: chatId },
-  });
-  const latestMessage = await getLastestChatMessage(chatId);
-
-  if (!latestMessage) {
-    throw new Error("retryLastGeneration: latest message not found");
-  }
-  if (latestMessage.role !== "assistant") {
-    throw new Error("retryLastGeneration: latest message is not assistant");
-  }
-  const answeredQuestion =
-    "toolCalls" in latestMessage &&
-    latestMessage.toolCalls?.find(
-      (tc) => tc.name === "createQuestion" && tc.result,
-    );
-  if (!answeredQuestion) {
-    throw new Error(
-      "retryLastGeneration: no answered createQuestion tool call found",
-    );
-  }
-
-  const storyMessage = toStoryModelMessage(storyData);
-  const hsitoryMessage = toHistoryModelMessage(history);
-  const modelMessage = [
-    storyMessage,
-    hsitoryMessage,
-    ...toModelMessage(latestMessage),
-  ];
-
-  const stream = runGenerationStream({
-    chatId,
-    traceId,
-    modelMessage,
-    storyData,
-    log,
-  });
-
-  return {
-    id: chatId,
-    messageId: nanoid(),
     content: stream.value,
   };
 }

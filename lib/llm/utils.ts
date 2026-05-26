@@ -44,7 +44,18 @@ export function toModelMessage(
   if (message === undefined) {
     return messages;
   }
-  if ("toolCalls" in message && message.toolCalls?.length > 0) {
+
+  if (message.text.trim().length > 0) {
+    messages.push({
+      role: message.role,
+      content: message.text,
+    });
+  }
+  if (
+    message.role === "assistant" &&
+    "toolCalls" in message &&
+    message.toolCalls?.length > 0
+  ) {
     const toolCallParts: ToolCallPart[] = [];
     const toolResultParts: ToolResultPart[] = [];
     message.toolCalls?.forEach((toolCall) => {
@@ -67,6 +78,7 @@ export function toModelMessage(
         });
       }
     });
+
     messages.push({
       role: "assistant",
       content: toolCallParts,
@@ -77,12 +89,6 @@ export function toModelMessage(
         content: toolResultParts,
       });
     }
-  }
-  if (message.text.trim().length > 0) {
-    messages.push({
-      role: message.role,
-      content: message.text,
-    });
   }
 
   return messages;
@@ -98,28 +104,33 @@ export function toModelMessages(
   }, []);
 }
 
-export function toHistoryModelMessage(history: History[]): ModelMessage {
-  const content =
-    history.length === 0
-      ? "（暂无历史记录）"
-      : history.map((h) => h.content).join("\n\n---\n\n");
+export function toHistoryModelMessage(
+  history: History[],
+): ModelMessage | undefined {
+  if (history.length === 0) {
+    return undefined;
+  }
   return {
-    role: "system",
-    content: ["# 故事设定", "## 历史年表", content].join("\n"),
+    role: "user",
+    content: [
+      "# 故事历史",
+      history.map((h) => h.content).join("\n\n---\n\n"),
+    ].join("\n"),
   };
 }
 
-export function toStoryModelMessage(story?: Story): ModelMessage {
+export function toStoryModelMessage(story?: Story): ModelMessage | undefined {
+  if (!story || !story.type) {
+    return undefined;
+  }
   return {
-    role: "system",
-    content: story
-      ? [
-          "# 故事设定",
-          `## 故事类型\n${story.type}`,
-          `## 世界观设定\n${story.worldview}`,
-          `## 初始设定\n${story.describe}`,
-          `## 金手指设定\n${story.system ?? "（未设定）"}`,
-        ].join("\n")
-      : "故事设定尚未生成！",
+    role: "user",
+    content: [
+      "# 故事设定",
+      `## 故事类型\n${story.type}`,
+      `## 世界观设定\n${story.worldview}`,
+      `## 初始设定\n${story.describe}`,
+      `## 金手指设定\n${story.system ?? "无设定"}`,
+    ].join("\n"),
   };
 }

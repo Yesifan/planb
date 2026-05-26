@@ -46,7 +46,6 @@ export default function StoryPage() {
     error,
     createStory,
     sendMessage,
-    retryGeneration,
     agentStatus,
   } = useStoryContext();
   const { refreshChatList } = useStoryLayout();
@@ -72,22 +71,6 @@ export default function StoryPage() {
       return latestPart.input as CreateQuestion;
     }
   }, [latestPart]);
-
-  const answeredQuestion = useMemo(() => {
-    if (isStreaming) return;
-    if (!latestMessage || latestMessage.role !== "assistant") return;
-    if (!latestPart || latestPart.type !== "tool-createQuestion") return;
-    const part = latestPart as {
-      type: "tool-createQuestion";
-      input: CreateQuestion;
-      output?: unknown;
-    };
-    if (!part.output) return;
-    return {
-      question: part.input,
-      output: String(part.output),
-    };
-  }, [latestMessage, latestPart, isStreaming]);
 
   const onCreate = async (values: z.infer<typeof createStoryFormSchema>) => {
     await createStory(values.source, values.singularity);
@@ -134,13 +117,13 @@ export default function StoryPage() {
                               {part.text}
                             </MessageResponse>
                           );
-                        case "tool-rejectInput":
-                          return (
+                        case "tool-judgeInput":
+                          return part.input?.decision === "reject" ? (
                             <StoryRejection
                               key={`${message.id}-${i}`}
-                              reason={part.input?.reason ?? ""}
+                              reason={part.input?.content ?? ""}
                             />
-                          );
+                          ) : null;
                       }
                     })}
                   </MessageContent>
@@ -167,13 +150,13 @@ export default function StoryPage() {
                                   {part.text}
                                 </MessageResponse>
                               );
-                            case "tool-rejectInput":
-                              return (
+                            case "tool-judgeInput":
+                              return part.input?.decision === "reject" ? (
                                 <StoryRejection
                                   key={`${streamingMessage.id}-${i}`}
-                                  reason={part.input?.reason ?? ""}
+                                  reason={part.input?.content ?? ""}
                                 />
-                              );
+                              ) : null;
                           }
                         })}
                       </MessageContent>
@@ -187,14 +170,6 @@ export default function StoryPage() {
           {question ? (
             <StoryQuestion
               question={question}
-              onSubmit={sendMessage}
-              className="my-4"
-            />
-          ) : answeredQuestion ? (
-            <StoryQuestion
-              question={answeredQuestion.question}
-              answer={answeredQuestion.output}
-              onRetry={retryGeneration}
               onSubmit={sendMessage}
               className="my-4"
             />

@@ -23,7 +23,7 @@ export const ArchivistOutputSchema = z.object({
 });
 
 export const arbiter = createAgent("Arbiter", provider, Arbiter);
-export const sentinel = createAgent<PickTools<"rejectInput">>("Sentinel", provider, Sentinel);
+export const sentinel = createAgent<PickTools<"judgeInput">>("Sentinel", provider, Sentinel);
 export const archivist = createAgent("Archivist", provider, Archivist);
 export const exMachina = createAgent<PickTools<"saveSystemSetting">>("ExMachina", provider, ExMachina);
 export const oracle = createAgent("Oracle", provider, Oracle);

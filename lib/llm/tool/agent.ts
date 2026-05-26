@@ -1,4 +1,4 @@
-import { tool } from "ai";
+import { ModelMessage, tool } from "ai";
 import { z } from "zod";
 
 import { db } from "@/lib/db";
@@ -30,7 +30,7 @@ export const activateSystem = tool({
             role: "user",
             content: `## 当前剧情状态\n${input.currentSituation}\n\n## 触发原因\n${input.trigger}\n\n请根据以上情境进行介入。`,
           },
-        ],
+        ].filter((m): m is ModelMessage => m !== undefined),
         experimental_context,
       });
       return result.text;
@@ -101,7 +101,7 @@ export const reviewBranch = tool({
           role: "user",
           content: `## 待审查的故事推演\n${content}\n\n请对该推演进行逻辑审查与打分。`,
         },
-      ],
+      ].filter((m): m is ModelMessage => m !== undefined),
       experimental_context,
     });
     return result.text;

@@ -40,14 +40,19 @@ const createQuestion = tool({
 });
 export type CreateQuestion = z.infer<typeof createQuestionSchema>;
 
-const rejectInput = tool({
+const judgeInput = tool({
   description:
-    "当用户输入在当前世界设定下不合理、违反逻辑或严重 OOC 时，使用本工具拒绝该输入并向用户说明原因。用户需要重新输入。",
+    "用户输入审查工具：必须为每一次用户输入调用本工具一次，给出 approve（放行）或 reject（拒绝）的明确判定。approve 时在 content 中输出标准化的历史年表；reject 时在 content 中说明拒绝原因。",
   inputSchema: z.object({
-    reason: z
+    decision: z
+      .enum(["approve", "reject"])
+      .describe(
+        "审查结论：approve 表示输入合理放行；reject 表示输入违反世界设定/严重 OOC/为空乱码等需要用户重新输入",
+      ),
+    content: z
       .string()
       .describe(
-        "拒绝原因：清晰说明为什么该输入在当前世界设定下不合理，帮助用户理解并重新输入",
+        "approve 时填写转化后的历史年表文本（供下游 Agent 消费）；reject 时填写清晰的拒绝原因（用于提示用户重新输入）",
       ),
   }),
 });
@@ -56,7 +61,7 @@ const Tools = {
   createStory,
   createQuestion,
   dice,
-  rejectInput,
+  judgeInput,
   saveSystemSetting,
 } satisfies ToolSet;
 
@@ -68,7 +73,7 @@ export const ToolKeys = [
   "createStory",
   "createQuestion",
   "dice",
-  "rejectInput",
+  "judgeInput",
   "saveSystemSetting",
 ] as const;
 

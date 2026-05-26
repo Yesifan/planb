@@ -126,37 +126,27 @@ export class PlanbAgent<
     const traceId = (experimental_context as ToolContext | undefined)?.traceId;
     const log = logger.child({ traceId, agent: this.id });
 
-    try {
-      const prepareOptions = await this.prepareCall(options);
+    const prepareOptions = await this.prepareCall(options);
 
-      log.debug(
-        { prompt: prepareOptions.prompt, messages: prepareOptions.messages },
-        "Agent Generate Input",
-      );
+    const result = await generateText({
+      ...prepareOptions,
+      abortSignal,
+      timeout,
+      experimental_context,
+      onStepFinish: this.mergeOnStepFinishCallbacks(
+        onStepFinish,
+      ) as GenerateTextOnStepFinishCallback<TOOLS>,
+    });
 
-      const result = await generateText({
-        ...prepareOptions,
-        abortSignal,
-        timeout,
-        experimental_context,
-        onStepFinish: this.mergeOnStepFinishCallbacks(
-          onStepFinish,
-        ) as GenerateTextOnStepFinishCallback<TOOLS>,
-      });
+    log.debug(
+      {
+        text: result.text,
+        reasoning: result.reasoningText,
+      },
+      "Agent Generate End",
+    );
 
-      log.debug(
-        {
-          text: result.text,
-          reasoning: result.reasoningText,
-        },
-        "Agent Generate End",
-      );
-
-      return result;
-    } catch (error) {
-      log.error({ error }, "agent generate");
-      throw error;
-    }
+    return result;
   }
 
   /**
@@ -168,7 +158,6 @@ export class PlanbAgent<
     experimental_transform,
     experimental_context,
     onError,
-    onFinish,
     onStepFinish,
     ...options
   }: Omit<Parameters<typeof streamText<TOOLS, OUTPUT>>[0], "model">): Promise<
@@ -178,11 +167,6 @@ export class PlanbAgent<
     const log = logger.child({ traceId, agent: this.id });
 
     const prepareOptions = await this.prepareCall(options);
-
-    log.debug(
-      { prompt: prepareOptions.prompt, messages: prepareOptions.messages },
-      "Agent Stream Input",
-    );
 
     return streamText({
       ...prepareOptions,
@@ -194,16 +178,7 @@ export class PlanbAgent<
         log.error(e, "Agent Stream Error");
         onError?.(e);
       },
-      onFinish: (e) => {
-        log.debug(
-          {
-            text: e.text,
-            reasoning: e.reasoningText,
-          },
-          "Agent Stream End",
-        );
-        onFinish?.(e);
-      },
+
       onStepFinish: this.mergeOnStepFinishCallbacks(onStepFinish),
     });
   }

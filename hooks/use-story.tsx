@@ -18,13 +18,13 @@ import { getChatMessages, getChatWithStory } from "@/lib/actions/db";
 import {
   continueConversation,
   createStory as createStoryAction,
-  retryLastGeneration,
 } from "@/lib/actions/llm";
 import type { Chat, Story } from "@/lib/db/schema";
 import { streamToUIMessage } from "@/lib/llm/client";
 import { MyUIMessage } from "@/lib/llm/type";
 import { toUIMessages } from "@/lib/llm/utils";
 import logger from "@/lib/logger";
+
 export interface UseStoryReturn {
   chatId?: string;
   chat?: Chat;
@@ -37,7 +37,6 @@ export interface UseStoryReturn {
   error?: string;
   createStory: (source: string, singularity: string) => Promise<string>;
   sendMessage: (message: PromptInputMessage) => Promise<void>;
-  retryGeneration: () => Promise<void>;
 }
 
 const StoryContext = createContext<UseStoryReturn | null>(null);
@@ -49,12 +48,17 @@ export function StoryProvider({ children }: { children: ReactNode }) {
 
   const skipFetchMessage = useRef<string | undefined>(undefined);
   const [messages, setMessages] = useState<MyUIMessage[]>([]);
-  const [streamingMessage, setStreamingMessage] = useState<MyUIMessage | null>(null);
+  const [streamingMessage, setStreamingMessage] = useState<MyUIMessage | null>(
+    null,
+  );
   const [chat, setChat] = useState<Chat | undefined>(undefined);
   const [story, setStory] = useState<Story | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
-  const [agentStatus, setAgentStatus] = useState<{ agentId: string; statusText: string } | null>(null);
+  const [agentStatus, setAgentStatus] = useState<{
+    agentId: string;
+    statusText: string;
+  } | null>(null);
   const [error, setError] = useState<string | undefined>(undefined);
 
   useEffect(() => {
@@ -101,7 +105,10 @@ export function StoryProvider({ children }: { children: ReactNode }) {
 
         let finalMessage: MyUIMessage | null = null;
 
-        for await (const uiMessage of streamToUIMessage(messageId, newMessage)) {
+        for await (const uiMessage of streamToUIMessage(
+          messageId,
+          newMessage,
+        )) {
           if (uiMessage.agentStatus !== undefined) {
             setAgentStatus(uiMessage.agentStatus);
           }
@@ -148,7 +155,10 @@ export function StoryProvider({ children }: { children: ReactNode }) {
 
         let finalMessage: MyUIMessage | null = null;
 
-        for await (const uiMessage of streamToUIMessage(messageId, newMessage)) {
+        for await (const uiMessage of streamToUIMessage(
+          messageId,
+          newMessage,
+        )) {
           if (uiMessage.agentStatus !== undefined) {
             setAgentStatus(uiMessage.agentStatus);
           }
@@ -166,50 +176,10 @@ export function StoryProvider({ children }: { children: ReactNode }) {
           setStory(updatedChat.story);
         }
       } catch (e) {
+        toast.error("生成失败，内容已保留，请重试");
         logger.error({ err: e }, "sendMessage failed");
-        toast.error("生成失败,可点击重试");
         setStreamingMessage(null);
         setMessages((prev) => prev.filter((m) => m.id !== userMsg.id));
-      } finally {
-        setIsStreaming(false);
-        setAgentStatus(null);
-      }
-    },
-    [chatId],
-  );
-
-  const retryGeneration: UseStoryReturn["retryGeneration"] = useCallback(
-    async () => {
-      if (!chatId) return;
-
-      setIsStreaming(true);
-      try {
-        const { messageId, content: newMessage } =
-          await retryLastGeneration(chatId);
-
-        let finalMessage: MyUIMessage | null = null;
-
-        for await (const uiMessage of streamToUIMessage(messageId, newMessage)) {
-          if (uiMessage.agentStatus !== undefined) {
-            setAgentStatus(uiMessage.agentStatus);
-          }
-          setStreamingMessage(uiMessage);
-          finalMessage = uiMessage;
-        }
-
-        if (finalMessage) {
-          setMessages((prev) => [...prev, finalMessage!]);
-        }
-        setStreamingMessage(null);
-
-        const updatedChat = await getChatWithStory(chatId);
-        if (updatedChat.story) {
-          setStory(updatedChat.story);
-        }
-      } catch (e) {
-        logger.error({ err: e }, "retryGeneration failed");
-        toast.error("重试失败,请稍后再试");
-        setStreamingMessage(null);
       } finally {
         setIsStreaming(false);
         setAgentStatus(null);
@@ -232,7 +202,6 @@ export function StoryProvider({ children }: { children: ReactNode }) {
         error,
         createStory,
         sendMessage,
-        retryGeneration,
       }}
     >
       {children}
