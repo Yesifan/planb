@@ -96,6 +96,36 @@ const result = await YourAgentInstance.stream({
 });
 ```
 
+#### experimental_context 透传机制
+
+`experimental_context` 是 AI SDK 在**一次 turn 内**的隐式透传通道：
+
+- 主 agent 传入的 ctx 会自动透传到所有 tool 的 `execute(input, { experimental_context })`
+- tool 内部调用 sub-agent（如 `arbiter.generate({ experimental_context })`）时，sub-agent 继续共享同一个 ctx 对象
+- 这是跨 agent 累积状态（token 计数、追踪 ID、共享缓存）的最佳载体
+- **每个 turn 必须创建独立的 ctx 实例**（不要全局 singleton）
+- ctx 上的可变对象（如累加器）会被所有 agent 共享读写
+
+参考实现：`lib/llm/type.ts` 的 `ToolContext` 类型 + `lib/llm/usage.ts` 的 token 累加器。
+
+#### AI SDK v6 usage 字段注意点
+
+- **MockLanguageModelV3.doGenerate** 返回的 `usage` 是嵌套结构：
+  ```ts
+  usage: { inputTokens: { total: N }, outputTokens: { total: N } }
+  ```
+- **GenerateTextResult.totalUsage** 和 **OnFinishEvent.totalUsage** 已被 AI SDK 扁平化为：
+  ```ts
+  totalUsage: { inputTokens: N, outputTokens: N }
+  ```
+- 编写 token 统计相关代码时使用**扁平结构**，使用可选链 + `?? 0` 容错 null/undefined。
+
+#### saveMessageWithTool 是 turn 内唯一的 assistant message 写入点
+
+- 一次 turn 内 `lib/llm/db.ts:saveMessageWithTool` 只被调用一次（Sentinel reject 路径 OR Weaver onFinish）
+- 适合做 **turn 范围的聚合写入**（token 累计、metrics、追踪等）
+- 新增 assistant message 字段或聚合数据时，优先在此处写入，不要分散到各 agent onFinish
+
 #### Agent 矩阵
 
 项目预定义了多 Agent 协作叙事系统，参见 `@planb/README.md`：
@@ -252,13 +282,47 @@ const contentParts = [{ type: "text", text: message.text }];
 ### Rule
 
 - Never commit unless explicitly requested
-- always use TDD with devlope new feature
 - 编写计划文档时请使用中文
 - 计划文档中不要直接编写代码，只需要描述做什么，怎么做，目标和约束是什么
 - 执行文件前询问我是否新 checkout 出一个feature 分支，在 worktree 中开始新的工作
 - 如果使用 worktree 工作，一定要把这一点传递给每一个 subagent！
 - 在 worktree 中所有工作都完成后询问用户进行确认，确认后再提交 commit
 - 不要主动执行会 git commit/reset/pull 等有副作用的 git 操作
+
+### TDD 适用范围
+
+**必须使用 TDD**（先写测试 → RED → 实现 → GREEN）：
+
+- `lib/llm/**` 下的纯函数与工具（如 token 累加器、prompt 拼接、消息转换）
+- `lib/actions/**` 下的 server action 业务逻辑（带 DB / agent 编排的入口）
+- `lib/db/**` 下的 query/mutation helper
+- 数据转换、格式校验、Zod schema 的边界行为
+- 修复 bug 时：先用失败测试复现，再修代码
+
+**不要求 TDD（可直接实现 + 手动验证）**：
+
+- React 组件 UI / 样式 / 布局调整
+- App Router 页面、layout、loading/error 边界
+- shadcn 组件包装、ai-elements 组装
+- Markdown agent 定义文件（`planb/agents/*.md`）的 prompt 调整
+- 仅涉及类型声明、import 路径、注释、文案的改动
+
+### TODO.md 维护
+
+根目录 `TODO.md` 是用户维护的功能清单。完成某项功能后必须：
+
+1. 把对应行的 `[ ]` 改为 `[x]`
+2. 在该行下方追加一段说明（缩进 2 空格），简述**如何完成**（关键文件 / 思路 / 约束），便于后续回溯
+3. 仅当本次改动直接覆盖该条目时才勾选；部分实现保持 `[ ]` 并在下方说明进度
+
+示例：
+
+```markdown
+- [x] token 记录和显示
+  - 通过 `experimental_context.tokenUsage` 累加器在所有 agent 和 sub-agent 间透传
+  - 在 `lib/llm/db.ts:saveMessageWithTool` 一处持久化到 message 行的 inputTokens/outputTokens
+  - 三入口（createStory / continueCreateStory / continueStory）调用代码保持一致
+```
 
 ### Design for isolation and clarity:
 
