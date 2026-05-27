@@ -24,6 +24,7 @@ import {
   InvalidInputError,
   MessageNotFoundError,
 } from "@/lib/llm/errors";
+import { addUsage, createTokenAccumulator } from "@/lib/llm/usage";
 import {
   toHistoryModelMessage,
   toModelMessage,
@@ -121,7 +122,12 @@ export async function createStory(source: string, singularity: string) {
 
       const result = await archivist.stream({
         prompt,
-        experimental_context: { db, chatId, traceId },
+        experimental_context: {
+          db,
+          chatId,
+          traceId,
+          tokenUsage: createTokenAccumulator(),
+        },
         async onFinish(event) {
           try {
             await saveMessageWithTool(
@@ -184,6 +190,9 @@ async function continueCreateStory(
     ],
     experimental_context,
   });
+  if (experimental_context.tokenUsage) {
+    addUsage(experimental_context.tokenUsage, archivistResult.totalUsage);
+  }
 
   stream.update({
     type: "agent-status",
@@ -234,30 +243,31 @@ async function continueStory(
     prompt: messages,
     experimental_context,
     async onFinish(event) {
-      const hasJudgement = event.toolCalls.some(
-        (tc) => tc.toolName === "judgeInput",
+      const hasJudgementReject = event.toolCalls.some(
+        (tc) =>
+          tc.dynamic === false &&
+          tc.toolName === "judgeInput" &&
+          tc.input.decision === "reject",
       );
-      if (hasJudgement) {
+      if (hasJudgementReject) {
         await onFinish(event as unknown as OnFinishEvent<ToolSet>);
       }
     },
     onError: makeStreamOnError(log, stream, "Sentinel"),
   });
 
-  const judgement = (await sentinelInputResult.toolCalls)
-    .filter((tc) => tc.toolName === "judgeInput")
-    .at(-1)?.input as
-    | { decision: "approve" | "reject"; content: string }
-    | undefined;
+  const judgement = (await sentinelInputResult.toolCalls).findLast(
+    (tc) => tc.toolName === "judgeInput" && tc.dynamic === false,
+  );
 
-  if (!judgement) {
+  if (!judgement || judgement.dynamic === true) {
     log.error("Sentinel did not call judgeInput");
     stream.update({ type: "agent-status", agentId: null });
     return sentinelInputResult;
   }
 
-  if (judgement.decision === "reject") {
-    log.debug({ reason: judgement.content }, "Sentinel Review Rejected");
+  if (judgement.input.decision === "reject") {
+    log.debug({ reason: judgement.input.content }, "Sentinel Review Rejected");
     stream.update({ type: "agent-status", agentId: null });
     return sentinelInputResult;
   }
@@ -272,7 +282,7 @@ async function continueStory(
     ...messages.slice(0, -1),
     {
       role: "user",
-      content: judgement.content,
+      content: judgement.input.content,
     } as ModelMessage,
   ];
 
@@ -287,6 +297,11 @@ async function continueStory(
           agentId: "Oracle",
           statusText: ORACLE_TOOL_STATUS[toolName],
         });
+      }
+    },
+    onFinish(event) {
+      if (experimental_context.tokenUsage) {
+        addUsage(experimental_context.tokenUsage, event.totalUsage);
       }
     },
     onError: makeStreamOnError(log, stream, "Oracle"),
@@ -403,7 +418,12 @@ export async function continueConversation(chatId: string, prompt: string) {
   const stream = createStreamableValue<UIMessageChunk | AgentStatusEvent>();
 
   (async () => {
-    const experimental_context = { db, chatId, traceId };
+    const experimental_context = {
+      db,
+      chatId,
+      traceId,
+      tokenUsage: createTokenAccumulator(),
+    };
     const onFinish = async (
       event: Parameters<typeof saveMessageWithTool>[1],
     ) => {

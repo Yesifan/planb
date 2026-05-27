@@ -99,6 +99,7 @@ export interface ToolContext {
   db: DB;
   chatId: string;
   traceId?: string;
+  tokenUsage?: { inputTokens: number; outputTokens: number };
 }
 
 export interface LogContext {

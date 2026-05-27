@@ -5,6 +5,7 @@ import logger from "@/lib/logger";
 
 import { db } from "../db";
 import { ToolContext } from "./type";
+import { addUsage } from "./usage";
 
 export const saveMessageWithTool = async <T extends ToolSet>(
   messageId: string,
@@ -39,6 +40,10 @@ export const saveMessageWithTool = async <T extends ToolSet>(
 
   log.debug({ text, reasoningText, toolCalls }, "save in DB");
 
+  if (experimental_context.tokenUsage) {
+    addUsage(experimental_context.tokenUsage, totalUsage);
+  }
+
   db.transaction((tx) => {
     tx.insert(message).values({
       id: messageId,
@@ -46,8 +51,8 @@ export const saveMessageWithTool = async <T extends ToolSet>(
       role: "assistant",
       text: text,
       reasoning: reasoningText,
-      inputTokens: totalUsage?.inputTokens,
-      outputTokens: totalUsage?.outputTokens,
+      inputTokens: experimental_context.tokenUsage?.inputTokens ?? totalUsage?.inputTokens,
+      outputTokens: experimental_context.tokenUsage?.outputTokens ?? totalUsage?.outputTokens,
       model: typeof model === "string" ? model : model?.modelId,
       createdAt: now,
     }).run();
