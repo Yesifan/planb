@@ -37,7 +37,11 @@ export type AgentId =
   | "Weaver"
   | (string & {});
 
-export const NPM_PROVIDER = ["@ai-sdk/openai-compatible", "ai/test"] as const;
+export const NPM_PROVIDER = [
+  "@ai-sdk/openai-compatible",
+  "@ai-sdk/deepseek",
+  "ai/test",
+] as const;
 export const NpmProviderSchema = z.enum(NPM_PROVIDER);
 
 export const ModelSchema = z.object({

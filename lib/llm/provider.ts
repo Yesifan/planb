@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 
+import { createDeepSeek, DeepSeekProvider } from "@ai-sdk/deepseek";
 import {
   createOpenAICompatible,
   OpenAICompatibleProvider,
@@ -44,7 +45,7 @@ export function createPlanbCompatible<IMAGE_MODEL_IDS extends LanguageModel>(
   providersConfig: Record<string, Provider>,
 ) {
   const providers = Object.entries(providersConfig).reduce<
-    Record<string, OpenAICompatibleProvider | MockProvider>
+    Record<string, OpenAICompatibleProvider | DeepSeekProvider | MockProvider>
   >((acc, [key, provider]) => {
     let aiProvider = null;
     if (provider.npm === "@ai-sdk/openai-compatible") {
@@ -54,7 +55,12 @@ export function createPlanbCompatible<IMAGE_MODEL_IDS extends LanguageModel>(
         baseURL: provider?.options?.baseURL ?? "",
         includeUsage: true, // Include usage information in streaming responses
       });
-    } else if (provider.npm === "ai/test") {
+    } else if (provider.npm === "@ai-sdk/deepseek") {
+      aiProvider = createDeepSeek({
+        apiKey: provider?.options?.apiKey,
+      });
+    }
+    if (provider.npm === "ai/test") {
       aiProvider = createMockProvider();
     }
     if (aiProvider) {
