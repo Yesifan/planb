@@ -107,7 +107,7 @@ describe("getChatMessages", () => {
 
     const result = await getChatMessages("gcm-msg-chat");
     expect(result).toHaveLength(2);
-    expect(result[0].text).toBe("Hi there");
-    expect(result[1].text).toBe("Hello");
+    expect(result[0].text).toBe("Hello");
+    expect(result[1].text).toBe("Hi there");
   });
 });

@@ -3,7 +3,7 @@ import "@/envConfig";
 
 import * as matchers from "@testing-library/jest-dom/matchers";
 import { plugin } from "bun";
-import { beforeAll, beforeEach } from "bun:test";
+import { beforeAll, beforeEach, mock } from "bun:test";
 import { expect } from "bun:test";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import { JSDOM } from "jsdom";
@@ -12,10 +12,67 @@ import { db as testdb } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { matterBunLoader } from "@/loader/matter";
 
-// Setup JSDOM for React component testing
+// Mock @ai-sdk/rsc before any module loads it.
+// In Bun's test env, the package resolves to rsc-client.mjs which omits
+// createStreamableValue (a server-only export). Provide a minimal fake that
+// satisfies the action code's usage and keeps readStreamableValue working
+// against the same protocol.
+mock.module("@ai-sdk/rsc", () => {
+  function createStreamableValue<T>() {
+    let current: T | undefined;
+    let nextResolve:
+      | ((value: { curr: T | undefined; done: boolean }) => void)
+      | undefined;
+    let next = new Promise<{ curr: T | undefined; done: boolean }>((r) => {
+      nextResolve = r;
+    });
+    return {
+      get value() {
+        return {
+          get curr() {
+            return current;
+          },
+          get next() {
+            return next;
+          },
+        };
+      },
+      update(value: T) {
+        current = value;
+        nextResolve?.({ curr: value, done: false });
+        next = new Promise((r) => {
+          nextResolve = r;
+        });
+        return this;
+      },
+      done() {
+        nextResolve?.({ curr: undefined, done: true });
+        return this;
+      },
+      append() {
+        return this;
+      },
+      error() {
+        return this;
+      },
+    };
+  }
+  async function* readStreamableValue<T>(stream: {
+    curr: T | undefined;
+    next: Promise<{ curr: T | undefined; done: boolean }>;
+  }): AsyncGenerator<T> {
+    if (stream.curr !== undefined) yield stream.curr;
+    while (true) {
+      const { curr, done } = await stream.next;
+      if (done) return;
+      if (curr !== undefined) yield curr;
+    }
+  }
+  return { createStreamableValue, readStreamableValue };
+});
+
 const dom = new JSDOM("<!DOCTYPE html><html><body></body></html>");
 
-// Add missing browser APIs
 Object.defineProperty(dom.window, "localStorage", {
   value: {
     getItem: () => null,
@@ -36,7 +93,6 @@ Object.defineProperty(dom.window, "sessionStorage", {
   writable: true,
 });
 
-// Add matchMedia polyfill
 dom.window.matchMedia = () => ({
   matches: false,
   media: "",
@@ -59,7 +115,6 @@ global.HTMLTextAreaElement = dom.window.HTMLTextAreaElement;
 global.localStorage = dom.window.localStorage;
 global.sessionStorage = dom.window.sessionStorage;
 
-// Extend expect with jest-dom matchers
 expect.extend(matchers);
 
 plugin({

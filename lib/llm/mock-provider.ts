@@ -1,49 +1,182 @@
-import { LanguageModelV3Content } from "@ai-sdk/provider";
-import { LanguageModel } from "ai";
+import {
+  LanguageModelV3Content,
+  LanguageModelV3StreamPart,
+} from "@ai-sdk/provider";
+import { LanguageModel, simulateReadableStream } from "ai";
 import { MockLanguageModelV3 } from "ai/test";
 
 import { MockProvider } from "./type";
 
+export type MockUsage = {
+  inputTokens: number;
+  outputTokens: number;
+};
+
+export type MockTextResponse = {
+  kind: "text";
+  text: string;
+  usage: MockUsage;
+};
+
+export type MockToolCallResponse = {
+  kind: "tool-call";
+  toolName: string;
+  input: object;
+  text?: string;
+  usage: MockUsage;
+};
+
+export type MockResponse = MockTextResponse | MockToolCallResponse;
+
+let mockQueue: MockResponse[] = [];
+
+export function setMockResponses(responses: MockResponse[]) {
+  mockQueue = [...responses];
+}
+
+export function resetMock() {
+  mockQueue = [];
+}
+
+export function remainingMockResponses(): number {
+  return mockQueue.length;
+}
+
+function shiftResponse(): MockResponse | undefined {
+  return mockQueue.shift();
+}
+
+function toV3Usage(u: MockUsage) {
+  return {
+    inputTokens: {
+      total: u.inputTokens,
+      noCache: u.inputTokens,
+      cacheRead: undefined,
+      cacheWrite: undefined,
+    },
+    outputTokens: {
+      total: u.outputTokens,
+      text: u.outputTokens,
+      reasoning: undefined,
+    },
+  };
+}
+
+function textStreamChunks(
+  text: string,
+  usage: MockUsage,
+): LanguageModelV3StreamPart[] {
+  return [
+    { type: "text-start" as const, id: "t1" },
+    { type: "text-delta" as const, id: "t1", delta: text },
+    { type: "text-end" as const, id: "t1" },
+    {
+      type: "finish" as const,
+      finishReason: { unified: "stop" as const, raw: undefined },
+      usage: toV3Usage(usage),
+    },
+  ];
+}
+
+function toolCallStreamChunks(
+  toolName: string,
+  input: object,
+  usage: MockUsage,
+  text?: string,
+): LanguageModelV3StreamPart[] {
+  const inputJson = JSON.stringify(input);
+  const chunks: LanguageModelV3StreamPart[] = text
+    ? [
+        { type: "text-start", id: "t1" },
+        { type: "text-delta", id: "t1", delta: text },
+        { type: "text-end", id: "t1" },
+      ]
+    : [];
+
+  return [
+    ...chunks,
+    { type: "tool-input-start", id: "tc1", toolName },
+    { type: "tool-input-delta", id: "tc1", delta: inputJson },
+    { type: "tool-input-end", id: "tc1" },
+    { type: "tool-call", toolCallId: "tc1", toolName, input: inputJson },
+    {
+      type: "finish",
+      finishReason: { unified: "tool-calls", raw: undefined },
+      usage: toV3Usage(usage),
+    },
+  ];
+}
+
+function textGenerateContent(text: string): LanguageModelV3Content {
+  return { type: "text", text };
+}
+
+function toolCallGenerateContent(
+  toolName: string,
+  input: object,
+): LanguageModelV3Content {
+  return {
+    type: "tool-call",
+    toolCallId: `${toolName}_MOCK`,
+    toolName,
+    input: JSON.stringify(input),
+  };
+}
+
+const defaultUsage = toV3Usage({ inputTokens: 1, outputTokens: 1 });
+
+// 官方文档 https://ai-sdk.dev/docs/ai-sdk-core/testing
 export function createMockProvider<CHAT_MODEL_IDS extends LanguageModel>() {
   const defaultMock = new MockLanguageModelV3({
-    doGenerate: async (options) => {
-      let content: LanguageModelV3Content = {
-        type: "text",
-        text: `Hello, world!`,
-      };
-
-      if (options.prompt.find((message) => message.role === "tool")) {
-        content = {
-          type: "text",
-          text: `Tool Call Success!`,
-        };
-      } else if (
-        options.tools?.find((tool) => tool.name === "updateSessionTitle")
-      ) {
-        content = {
-          type: "tool-call",
-          toolCallId: "updateSessionTitle_MOCK",
-          toolName: "updateSessionTitle",
-          input: JSON.stringify({ title: "Mock Title" }),
+    doGenerate: async () => {
+      const resp = shiftResponse();
+      if (!resp) {
+        return {
+          content: [{ type: "text", text: "Hello, world!" }],
+          finishReason: { unified: "stop", raw: undefined },
+          usage: defaultUsage,
+          warnings: [],
         };
       }
+      const content =
+        resp.kind === "text"
+          ? [textGenerateContent(resp.text)]
+          : [toolCallGenerateContent(resp.toolName, resp.input)];
+
       return {
-        content: [content],
-        finishReason: { unified: "stop", raw: undefined },
-        usage: {
-          inputTokens: {
-            total: 10,
-            noCache: 10,
-            cacheRead: undefined,
-            cacheWrite: undefined,
-          },
-          outputTokens: {
-            total: 20,
-            text: 20,
-            reasoning: undefined,
-          },
-        },
+        content,
+        finishReason:
+          resp.kind === "tool-call"
+            ? { unified: "tool-calls", raw: undefined }
+            : { unified: "stop", raw: undefined },
+        usage: toV3Usage(resp.usage),
         warnings: [],
+      };
+    },
+    doStream: async () => {
+      const resp = shiftResponse();
+      if (!resp) {
+        return {
+          stream: simulateReadableStream({
+            chunks: textStreamChunks("Hello, world!", {
+              inputTokens: 1,
+              outputTokens: 1,
+            }),
+          }),
+        };
+      }
+      const chunks =
+        resp.kind === "text"
+          ? textStreamChunks(resp.text, resp.usage)
+          : toolCallStreamChunks(
+              resp.toolName,
+              resp.input,
+              resp.usage,
+              resp.text,
+            );
+
+      return {
+        stream: simulateReadableStream({ chunks }),
       };
     },
   });

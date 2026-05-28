@@ -245,22 +245,26 @@ async function continueStory(
     async onFinish(event) {
       const hasJudgementReject = event.toolCalls.some(
         (tc) =>
-          tc.dynamic === false &&
+          tc.dynamic !== true &&
           tc.toolName === "judgeInput" &&
           tc.input.decision === "reject",
       );
       if (hasJudgementReject) {
         await onFinish(event as unknown as OnFinishEvent<ToolSet>);
+      } else {
+        if (experimental_context.tokenUsage) {
+          addUsage(experimental_context.tokenUsage, event.totalUsage);
+        }
       }
     },
     onError: makeStreamOnError(log, stream, "Sentinel"),
   });
 
   const judgement = (await sentinelInputResult.toolCalls).findLast(
-    (tc) => tc.toolName === "judgeInput" && tc.dynamic === false,
+    (tc) => tc.toolName === "judgeInput" && tc.dynamic !== true,
   );
 
-  if (!judgement || judgement.dynamic === true) {
+  if (!judgement) {
     log.error("Sentinel did not call judgeInput");
     stream.update({ type: "agent-status", agentId: null });
     return sentinelInputResult;
@@ -451,6 +455,7 @@ export async function continueConversation(chatId: string, prompt: string) {
           db,
           chatId,
           traceId,
+          tokenUsage: experimental_context.tokenUsage,
         });
       } catch (error) {
         log.error({ error }, "continueConversation.onFinish.failed");

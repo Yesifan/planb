@@ -67,7 +67,44 @@ bunx tsc --noEmit
 - Avoid mocks as much as possible
 - Test actual implementation, do not duplicate logic into tests
 - Tests cannot run from repo root (guard: `do-not-run-tests-from-root`); run from package dirs like `packages/opencode`.
-- Test pattern: Bun test (bun:test), co-located \*.test.ts, given/when/then style (nested describe with #given/#when/#then prefixes or inline // given / // when / // then comments)
+- Test pattern: Bun test (bun:test), co-located `*.test.ts`
+- **测试命名统一使用 `should` 命名法**：`test("should <预期行为> when <前置条件>")`，主语隐含为「被测对象」。详见下方「测试命名」小节。
+
+#### 单元测试硬性原则（写测试前必读）
+
+每个 `test/it` 用例必须能回答："这个用例如果挂了，是否代表项目代码出了真实 bug？" 不能回答 yes 的用例 → **不要写**。
+
+**严禁出现的测试类型（PR 中会被打回）**：
+
+1. **测第三方库本身**：例如直接 `db.insert(...) → db.select(...) → expect(...)` 验证 Drizzle CRUD、验证 SQLite 能存数据、验证 Zod 能解析合法 schema —— 这些是上游库的责任，TS 类型已经在编译期约束，跑测试只会发现库 bug 而非项目 bug。
+   - **例外**：当 SQL 行为不直观时（如 cascade delete、LEFT JOIN 空值、cursor 分页边界），允许写一个用例**锁定项目对 Drizzle 行为的依赖**，但 describe 名字必须明确说明（例如 `"cascade delete on chat removes its messages"`）。
+2. **空壳 describe**：只有 `beforeEach/afterEach` 没有任何 `test/it`。要么补真实用例，要么删除文件。
+3. **smoke test 而非行为 test**：例如 `select count() from user` 永远不会失败，除非 schema 没迁移 —— 它检测的是"测试基础设施是否健康"，而不是项目逻辑。这类校验集中在一个 `test/setup.ts` 的 sanity check 里即可，不要散落在各个 `*.test.ts`。
+4. **mock 掉被测对象的核心依赖**：例如测 server action 时 `mock.module("@/lib/auth/server")` 把 auth 整段桩掉，会让 unauthorized 分支永远测不到。正确做法是**重构被测代码**，把"取 session"和"业务逻辑"拆开，让纯业务部分接受 `userId` 入参，从而无需 mock。
+5. **复刻实现细节到测试里**：例如手写 `Symbol.for("ai.streamable.value")` 复刻 `StreamableValue` 的内部协议。一旦上游变结构整批测试就挂。如果一定要写，必须在文件顶部标注"⚠️ depends on @ai-sdk/rsc internal protocol"，并在升级该依赖时主动检查。
+
+**值得写的测试形态**：
+
+- 纯函数 / reducer：输入 → 输出，多组边界（empty / single / boundary / off-by-one）
+- 业务分支覆盖：每个 `if/return notFound()/return unauthorized()` 都至少一个用例
+- 复杂数据转换的中间状态（如 generator 的 yield 时机、stream chunk 状态机）
+- bug 复现：先红后绿，PR 描述里贴 issue 链接
+
+**测试命名 = 行为契约**。本项目**统一使用 `should` 命名法**，主语隐含为「被测对象」（即外层 `describe` 的名字）：
+
+```
+test("should <预期行为> [when <前置条件>]")
+```
+
+- ✅ `should persist chat and emit createQuestion tool call`
+- ✅ `should run archivist+weaver when story is incomplete`
+- ✅ `should reject request when user lacks chat access`
+- ❌ `test("delete chat")` —— 只描述操作，没说期望
+- ❌ `test("works correctly")` —— 没说什么算 works
+- ❌ `test("token bug fix")` —— 只描述意图，不是行为契约
+- ❌ 混用 `#given/#when/#then`、`it(...)`、`should ...` 等多种风格
+
+读测试名就要能立刻看出：**被测对象（describe） + 预期行为 + 前置条件**。
 
 ---
 
@@ -295,8 +332,8 @@ const contentParts = [{ type: "text", text: message.text }];
 
 - `lib/llm/**` 下的纯函数与工具（如 token 累加器、prompt 拼接、消息转换）
 - `lib/actions/**` 下的 server action 业务逻辑（带 DB / agent 编排的入口）
-- `lib/db/**` 下的 query/mutation helper
-- 数据转换、格式校验、Zod schema 的边界行为
+- `lib/db/**` 下**封装过的** query/mutation helper（仅有项目自己的逻辑时才测；直接调 `db.insert/select/update/delete` 不算 helper，不要测）
+- 数据转换、格式校验、Zod schema 的边界行为（仅测**项目自定义的 refinement / transform**，不要测"Zod 能否解析合法 schema"）
 - 修复 bug 时：先用失败测试复现，再修代码
 
 **不要求 TDD（可直接实现 + 手动验证）**：
@@ -306,6 +343,7 @@ const contentParts = [{ type: "text", text: message.text }];
 - shadcn 组件包装、ai-elements 组装
 - Markdown agent 定义文件（`planb/agents/*.md`）的 prompt 调整
 - 仅涉及类型声明、import 路径、注释、文案的改动
+- Better Auth / Drizzle / Next.js 等**框架与库自身行为**（属于上游责任，不在本项目测试范围内）
 
 ### TODO.md 维护
 
