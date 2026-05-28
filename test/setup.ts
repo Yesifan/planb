@@ -1,121 +1,159 @@
 // test-setup.ts
 import "@/envConfig";
 
-import * as matchers from "@testing-library/jest-dom/matchers";
 import { plugin } from "bun";
 import { beforeAll, beforeEach, mock } from "bun:test";
-import { expect } from "bun:test";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
-import { JSDOM } from "jsdom";
 
 import { db as testdb } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { matterBunLoader } from "@/loader/matter";
 
-// Mock @ai-sdk/rsc before any module loads it.
-// In Bun's test env, the package resolves to rsc-client.mjs which omits
-// createStreamableValue (a server-only export). Provide a minimal fake that
-// satisfies the action code's usage and keeps readStreamableValue working
-// against the same protocol.
+// Mock @ai-sdk/rsc's createStreamableValue with a behaviorally identical
+// implementation. The real one ships only via the `react-server` export
+// condition (rsc-server.mjs); Bun's test runner resolves to rsc-client.mjs
+// which omits it. Re-export the real readStreamableValue so consumers see
+// no behavioral difference.
 mock.module("@ai-sdk/rsc", () => {
-  function createStreamableValue<T>() {
-    let current: T | undefined;
-    let nextResolve:
-      | ((value: { curr: T | undefined; done: boolean }) => void)
-      | undefined;
-    let next = new Promise<{ curr: T | undefined; done: boolean }>((r) => {
-      nextResolve = r;
+  const STREAMABLE_VALUE_TYPE = Symbol.for("ui.streamable.value");
+
+  function createResolvablePromise<T>() {
+    let resolve!: (value: T) => void;
+    let reject!: (reason: unknown) => void;
+    const promise = new Promise<T>((res, rej) => {
+      resolve = res;
+      reject = rej;
     });
-    return {
+    return { promise, resolve, reject };
+  }
+
+  function createStreamableValue<T>(initialValue?: T) {
+    let closed = false;
+    let currentValue: T | undefined = initialValue;
+    let currentError: unknown;
+    let resolvable = createResolvablePromise<unknown>();
+    let currentPromise: Promise<unknown> | undefined = resolvable.promise;
+
+    const assertOpen = (method: string) => {
+      if (closed) throw new Error(`${method}: Value stream is already closed.`);
+    };
+
+    const createWrapped = (initialChunk?: boolean): Record<string, unknown> => {
+      const init: Record<string, unknown> =
+        currentError !== undefined
+          ? { error: currentError }
+          : { curr: currentValue };
+      if (currentPromise) init.next = currentPromise;
+      if (initialChunk) init.type = STREAMABLE_VALUE_TYPE;
+      return init;
+    };
+
+    const streamable = {
       get value() {
+        return createWrapped(true);
+      },
+      update(value: T) {
+        assertOpen(".update()");
+        const resolvePrevious = resolvable.resolve;
+        resolvable = createResolvablePromise<unknown>();
+        currentValue = value;
+        currentPromise = resolvable.promise;
+        resolvePrevious(createWrapped());
+        return streamable;
+      },
+      append(value: T) {
+        assertOpen(".append()");
+        const resolvePrevious = resolvable.resolve;
+        resolvable = createResolvablePromise<unknown>();
+        if (typeof currentValue === "string" && typeof value === "string") {
+          currentValue = (currentValue + value) as T;
+        } else {
+          currentValue = value;
+        }
+        currentPromise = resolvable.promise;
+        resolvePrevious(createWrapped());
+        return streamable;
+      },
+      done(...args: [T?]) {
+        assertOpen(".done()");
+        closed = true;
+        currentPromise = undefined;
+        if (args.length) {
+          currentValue = args[0];
+          resolvable.resolve(createWrapped());
+        } else {
+          resolvable.resolve({});
+        }
+        return streamable;
+      },
+      error(error: unknown) {
+        assertOpen(".error()");
+        closed = true;
+        currentError = error;
+        currentPromise = undefined;
+        resolvable.resolve({ error });
+        return streamable;
+      },
+    };
+    return streamable;
+  }
+
+  function isStreamableValue(value: unknown): boolean {
+    return (
+      value != null &&
+      typeof value === "object" &&
+      "type" in value &&
+      (value as { type: unknown }).type === STREAMABLE_VALUE_TYPE
+    );
+  }
+
+  function readStreamableValue<T>(streamableValue: {
+    curr: T | undefined;
+    next?: Promise<unknown>;
+  }) {
+    if (!isStreamableValue(streamableValue)) {
+      throw new Error(
+        "Invalid value: this hook only accepts values created via `createStreamableValue`.",
+      );
+    }
+    return {
+      [Symbol.asyncIterator]() {
+        let row:
+          | { curr?: T; next?: Promise<unknown>; error?: unknown }
+          | Promise<unknown> = streamableValue;
+        let value: T | undefined = streamableValue.curr;
+        let isDone = false;
+        let isFirstIteration = true;
         return {
-          get curr() {
-            return current;
-          },
-          get next() {
-            return next;
+          async next(): Promise<{ value: T | undefined; done: boolean }> {
+            if (isDone) return { value, done: true };
+            row = (await row) as typeof row;
+            if (typeof row === "object" && row !== null && "error" in row) {
+              throw (row as { error: unknown }).error;
+            }
+            const snap = row as { curr?: T; next?: Promise<unknown> };
+            if ("curr" in snap) {
+              value = snap.curr;
+              if (!snap.next) {
+                isDone = true;
+                return { value, done: false };
+              }
+            }
+            if (snap.next === undefined) return { value, done: true };
+            row = snap.next as Promise<unknown>;
+            if (isFirstIteration) {
+              isFirstIteration = false;
+              if (value === undefined) return this.next();
+            }
+            return { value, done: false };
           },
         };
       },
-      update(value: T) {
-        current = value;
-        nextResolve?.({ curr: value, done: false });
-        next = new Promise((r) => {
-          nextResolve = r;
-        });
-        return this;
-      },
-      done() {
-        nextResolve?.({ curr: undefined, done: true });
-        return this;
-      },
-      append() {
-        return this;
-      },
-      error() {
-        return this;
-      },
     };
   }
-  async function* readStreamableValue<T>(stream: {
-    curr: T | undefined;
-    next: Promise<{ curr: T | undefined; done: boolean }>;
-  }): AsyncGenerator<T> {
-    if (stream.curr !== undefined) yield stream.curr;
-    while (true) {
-      const { curr, done } = await stream.next;
-      if (done) return;
-      if (curr !== undefined) yield curr;
-    }
-  }
+
   return { createStreamableValue, readStreamableValue };
 });
-
-const dom = new JSDOM("<!DOCTYPE html><html><body></body></html>");
-
-Object.defineProperty(dom.window, "localStorage", {
-  value: {
-    getItem: () => null,
-    setItem: () => {},
-    removeItem: () => {},
-    clear: () => {},
-  },
-  writable: true,
-});
-
-Object.defineProperty(dom.window, "sessionStorage", {
-  value: {
-    getItem: () => null,
-    setItem: () => {},
-    removeItem: () => {},
-    clear: () => {},
-  },
-  writable: true,
-});
-
-dom.window.matchMedia = () => ({
-  matches: false,
-  media: "",
-  onchange: null,
-  addListener: () => {},
-  removeListener: () => {},
-  addEventListener: () => {},
-  removeEventListener: () => {},
-  dispatchEvent: () => false,
-});
-
-global.document = dom.window.document;
-global.window = dom.window as unknown as Window & typeof globalThis;
-global.navigator = dom.window.navigator;
-global.Element = dom.window.Element;
-global.HTMLElement = dom.window.HTMLElement;
-global.Text = dom.window.Text;
-global.HTMLElement = dom.window.HTMLElement;
-global.HTMLTextAreaElement = dom.window.HTMLTextAreaElement;
-global.localStorage = dom.window.localStorage;
-global.sessionStorage = dom.window.sessionStorage;
-
-expect.extend(matchers);
 
 plugin({
   name: "next-js-polyfills",
