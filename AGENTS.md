@@ -70,6 +70,21 @@ bunx tsc --noEmit
 - Test pattern: Bun test (bun:test), co-located `*.test.ts`
 - **测试命名统一使用 `should` 命名法**：`test("should <预期行为> when <前置条件>")`，主语隐含为「被测对象」。详见下方「测试命名」小节。
 
+#### 测试文件位置
+
+测试文件**必须与被测源码同目录**（co-located），文件名是 `<被测文件>.test.ts`。
+
+- ✅ `lib/actions/llm.ts` → `lib/actions/llm.test.ts`
+- ✅ `lib/utils/group-chats.ts` → `lib/utils/group-chats.test.ts`
+- ❌ `lib/actions/llm.ts` → `test/actions/llm.test.ts`（旧布局，已弃用）
+
+仅以下文件保留在顶层 `test/` 目录：
+
+- `test/setup.ts` —— 全局 preload（DB 迁移、mock 全局模块、JSDOM 等）
+- `test/fixtures/**` —— 跨模块共享的测试数据 / 工厂函数
+
+新增测试时不要再往 `test/<mirrored-path>/` 下放；直接挨着源码放即可。
+
 #### 单元测试硬性原则（写测试前必读）
 
 每个 `test/it` 用例必须能回答："这个用例如果挂了，是否代表项目代码出了真实 bug？" 不能回答 yes 的用例 → **不要写**。
