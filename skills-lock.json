@@ -62,6 +62,12 @@
       "skillPath": "skills/finishing-a-development-branch/SKILL.md",
       "computedHash": "9edba9a38684c060fdc38290f640e1dc0c37de286723ac9be73bacacf7cd6f3d"
     },
+    "grill-me": {
+      "source": "amit-t/skills",
+      "sourceType": "github",
+      "skillPath": "grill-me/SKILL.md",
+      "computedHash": "85da1b168c6f3aa93fd67ca9871fcb1f5e3c446c8efcfd5aa95f63a5fa842ae7"
+    },
     "receiving-code-review": {
       "source": "obra/superpowers",
       "sourceType": "github",

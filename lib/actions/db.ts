@@ -1,10 +1,12 @@
 "use server";
 
+import { eq, sum } from "drizzle-orm";
 import { notFound, unauthorized } from "next/navigation";
 import { performance } from "perf_hooks";
 
 import { getSessionWithRedirect } from "@/lib/auth/server";
 import { db } from "@/lib/db";
+import { message } from "@/lib/db/schema";
 import logger from "@/lib/logger";
 
 export async function getChatWithStory(chatId: string) {
@@ -38,6 +40,51 @@ export async function getChatWithStory(chatId: string) {
         duration: performance.now() - start,
       },
       "getChatWithStory",
+    );
+  }
+}
+
+export async function getChatTokens(
+  chatId: string,
+): Promise<{ inputTokens: number; outputTokens: number }> {
+  const start = performance.now();
+  const session = await getSessionWithRedirect();
+
+  try {
+    const chat = await db.query.chat.findFirst({
+      where: {
+        id: chatId,
+      },
+    });
+
+    if (!chat) {
+      return notFound();
+    }
+    if (chat.userId !== session.user.id) {
+      return unauthorized();
+    }
+
+    const [row] = await db
+      .select({
+        inputTokens: sum(message.inputTokens),
+        outputTokens: sum(message.outputTokens),
+      })
+      .from(message)
+      .where(eq(message.chatId, chatId));
+
+    return {
+      inputTokens: Number(row?.inputTokens ?? 0),
+      outputTokens: Number(row?.outputTokens ?? 0),
+    };
+  } catch (error) {
+    logger.error({ chatId, error }, "getChatTokens.error");
+    throw error;
+  } finally {
+    logger.info(
+      {
+        duration: performance.now() - start,
+      },
+      "getChatTokens",
     );
   }
 }

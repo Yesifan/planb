@@ -313,39 +313,24 @@ async function continueStory(
 
   const oracleText = await oracleResult.text;
 
-  const latestMessage = await db.query.message.findFirst({
-    where: {
-      chatId: chatId,
-      role: "assistant",
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
-
   stream.update({
     type: "agent-status",
     agentId: "Weaver",
     statusText: AGENT_STATUS_TEXT.Weaver,
   });
 
-  const latestChapter = latestMessage
-    ? `以下是上一章节的内容：\n\n${latestMessage.text}\n\n`
-    : "";
+  const prompt = [
+    messages[0],
+    {
+      role: "user",
+      content: `根据以下剧情大纲完成小说内容：\n\n${oracleText}`,
+    },
+  ] as ModelMessage[];
+
+  log.debug(prompt, "weaver input");
 
   return await weaver.stream({
-    prompt: [
-      messages[0],
-      {
-        role: "assistant",
-        content: latestChapter + `以下是剧情大纲：\n\n${oracleText}`,
-      },
-      {
-        role: "user",
-        content:
-          "根据剧情大纲完成小说内容。要求与上一章节风格一致，剧情衔接得当。",
-      },
-    ],
+    prompt: prompt,
     experimental_context,
     onAbort(event) {
       log.info(event, "weaver abort");
