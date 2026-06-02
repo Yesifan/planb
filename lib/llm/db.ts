@@ -38,8 +38,6 @@ export const saveMessageWithTool = async <T extends ToolSet>(
     "",
   );
 
-  log.debug({ text, reasoningText, toolCalls }, "save in DB");
-
   if (experimental_context.tokenUsage) {
     addUsage(experimental_context.tokenUsage, totalUsage);
   }

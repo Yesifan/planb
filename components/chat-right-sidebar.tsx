@@ -1,6 +1,12 @@
 "use client";
 
-import { ArrowDownToLine, ArrowUpFromLine, PanelRightClose, PanelRightOpen } from "lucide-react";
+import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Braces,
+  PanelRightClose,
+  PanelRightOpen,
+} from "lucide-react";
 import type { ComponentProps } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -34,6 +40,13 @@ function TokenRow({
 function LoadingSkeleton() {
   return (
     <div className="flex flex-col gap-4 px-2 py-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Skeleton className="size-4" />
+          <Skeleton className="h-4 w-20" />
+        </div>
+        <Skeleton className="h-4 w-16" />
+      </div>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Skeleton className="size-4" />
@@ -89,6 +102,7 @@ export function ChatRightSidebar({
   const [tokens, setTokens] = useState<{
     inputTokens: number;
     outputTokens: number;
+    contextTokens: number;
   } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -143,6 +157,11 @@ export function ChatRightSidebar({
               label="Output Tokens"
               value={tokens.outputTokens}
               icon={ArrowUpFromLine}
+            />
+            <TokenRow
+              label="Context Tokens"
+              value={tokens.contextTokens}
+              icon={Braces}
             />
           </>
         ) : null}

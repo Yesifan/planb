@@ -1,7 +1,7 @@
-import { describe, expect, mock,test } from "bun:test";
+import { describe, expect, mock, test } from "bun:test";
 
 import { db } from "@/lib/db";
-import { chat, message } from "@/lib/db/schema";
+import { chat, history, message, story } from "@/lib/db/schema";
 
 mock.module("@/lib/auth/server", () => ({
   getSessionWithRedirect: async () => ({
@@ -51,7 +51,11 @@ describe("getChatTokens", () => {
     });
 
     const result = await getChatTokens("gct-multi");
-    expect(result).toEqual({ inputTokens: 300, outputTokens: 125 });
+    expect(result).toEqual({
+      inputTokens: 300,
+      outputTokens: 125,
+      contextTokens: 2,
+    });
   });
 
   test("should return zeros for chat with no messages", async () => {
@@ -66,7 +70,11 @@ describe("getChatTokens", () => {
     });
 
     const result = await getChatTokens("gct-empty");
-    expect(result).toEqual({ inputTokens: 0, outputTokens: 0 });
+    expect(result).toEqual({
+      inputTokens: 0,
+      outputTokens: 0,
+      contextTokens: 0,
+    });
   });
 
   test("should exclude null token values from sum", async () => {
@@ -99,7 +107,56 @@ describe("getChatTokens", () => {
     });
 
     const result = await getChatTokens("gct-nulls");
-    expect(result).toEqual({ inputTokens: 42, outputTokens: 17 });
+    expect(result).toEqual({
+      inputTokens: 42,
+      outputTokens: 17,
+      contextTokens: 4,
+    });
+  });
+
+  test("should include current story history and latest message in context tokens", async () => {
+    const { getChatTokens } = await import("@/lib/actions/db");
+    const now = new Date();
+    await db.insert(chat).values({
+      id: "gct-context",
+      userId: "test-user",
+      title: "Context",
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(story).values({
+      id: "gct-context-story",
+      chatId: "gct-context",
+      source: "三国",
+      singularity: "孔明北伐",
+      type: "历史",
+      describe: "蜀汉",
+      worldview: "九州",
+      system: "无",
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db.insert(history).values({
+      id: "gct-context-history",
+      chatId: "gct-context",
+      content: "长安",
+      createdAt: now,
+    });
+    await db.insert(message).values({
+      id: "gct-context-message",
+      chatId: "gct-context",
+      role: "user",
+      text: "继续",
+      createdAt: now,
+    });
+
+    const result = await getChatTokens("gct-context");
+
+    expect(result).toEqual({
+      inputTokens: 0,
+      outputTokens: 0,
+      contextTokens: 44,
+    });
   });
 
   test("should throw for non-existent chat", async () => {

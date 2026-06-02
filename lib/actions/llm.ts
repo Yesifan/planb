@@ -4,7 +4,6 @@ import { createStreamableValue } from "@ai-sdk/rsc";
 import type { ModelMessage, OnFinishEvent, ToolSet, UIMessageChunk } from "ai";
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
-import type { Logger } from "pino";
 
 import { getSessionWithRedirect } from "@/lib/auth/server";
 import { db } from "@/lib/db";
@@ -24,13 +23,14 @@ import {
   InvalidInputError,
   MessageNotFoundError,
 } from "@/lib/llm/errors";
+import { createLLMLogging } from "@/lib/llm/logging";
+import { estimateModelMessageTokens } from "@/lib/llm/token";
 import { addUsage, createTokenAccumulator } from "@/lib/llm/usage";
 import {
   toHistoryModelMessage,
   toModelMessage,
   toStoryModelMessage,
 } from "@/lib/llm/utils";
-import logger from "@/lib/logger";
 
 import { AgentStatusEvent, ToolContext } from "../llm/type";
 import { getChatHistory, getLastestChatMessage } from "./db";
@@ -49,17 +49,6 @@ async function ensureChatAccess(chatId: string, userId: string) {
   if (found.userId !== userId) {
     throw new AccessDeniedError({ resource: "chat", resourceId: chatId });
   }
-}
-
-function makeStreamOnError(
-  log: Logger,
-  stream: StreamUpdater,
-  agentName: string,
-) {
-  return ({ error }: { error: unknown }) => {
-    log.error({ error, agentName }, "agent.stream.onError");
-    stream.update({ type: "agent-status", agentId: null });
-  };
 }
 
 interface StreamUpdater {
@@ -82,9 +71,9 @@ const ORACLE_TOOL_STATUS: Record<string, string> = {
 
 export async function createStory(source: string, singularity: string) {
   const traceId = nanoid();
-  const log = logger.child({ traceId, action: "createStory" });
+  const log = createLLMLogging({ traceId, action: "createStory" });
 
-  log.info({ source, singularity }, "start");
+  log.info({ source, singularity }, "action.start");
 
   const session = await getSessionWithRedirect();
 
@@ -120,6 +109,7 @@ export async function createStory(source: string, singularity: string) {
         statusText: AGENT_STATUS_TEXT.Archivist,
       });
 
+      log.info("agent.Archivist.start");
       const result = await archivist.stream({
         prompt,
         experimental_context: {
@@ -128,7 +118,11 @@ export async function createStory(source: string, singularity: string) {
           traceId,
           tokenUsage: createTokenAccumulator(),
         },
+        onStepFinish(step) {
+          log.step(step, "agent.Archivist.step.finish");
+        },
         async onFinish(event) {
+          log.finish(event, "agent.Archivist.finish");
           try {
             await saveMessageWithTool(
               messageId,
@@ -136,10 +130,13 @@ export async function createStory(source: string, singularity: string) {
               { db, chatId, traceId },
             );
           } catch (error) {
-            log.error({ error }, "saveMessageWithTool.failed");
+            log.error({ error }, "message.save.failed");
           }
         },
-        onError: makeStreamOnError(log, stream, "Archivist"),
+        onError({ error }) {
+          log.error({ error, agent: "archivist" }, "agent.stream.error");
+          stream.update({ type: "agent-status", agentId: null });
+        },
       });
 
       const uiMessages = result.toUIMessageStream();
@@ -151,7 +148,7 @@ export async function createStory(source: string, singularity: string) {
       stream.update({ type: "agent-status", agentId: null });
       stream.done();
     } catch (error) {
-      log.error({ error }, "createStory.stream.failed");
+      log.error({ error }, "action.stream.failed");
       stream.update({ type: "agent-status", agentId: null });
       stream.error(error);
     }
@@ -171,15 +168,17 @@ async function continueCreateStory(
   onFinish: (event: OnFinishEvent<ToolSet>) => Promise<void>,
   stream: StreamUpdater,
 ) {
-  const log = logger.child({
+  const log = createLLMLogging({
     traceId: experimental_context.traceId,
     action: "continueCreateStory",
+    chatId,
   });
   stream.update({
     type: "agent-status",
     agentId: "Archivist",
     statusText: AGENT_STATUS_TEXT.Archivist,
   });
+  log.info("agent.Archivist.start");
   const archivistResult = await archivist.generate({
     prompt: [
       {
@@ -189,7 +188,11 @@ async function continueCreateStory(
       ...messages,
     ],
     experimental_context,
+    onStepFinish(step) {
+      log.step(step, "agent.Archivist.step.finish");
+    },
   });
+  log.finish(archivistResult, "agent.Archivist.finish");
   if (experimental_context.tokenUsage) {
     addUsage(experimental_context.tokenUsage, archivistResult.totalUsage);
   }
@@ -199,6 +202,7 @@ async function continueCreateStory(
     agentId: "Weaver",
     statusText: AGENT_STATUS_TEXT.Weaver,
   });
+  log.info("agent.Weaver.start");
   return await weaver.stream({
     prompt: [
       ...archivistResult.response.messages,
@@ -209,8 +213,17 @@ async function continueCreateStory(
       },
     ],
     experimental_context,
-    onFinish,
-    onError: makeStreamOnError(log, stream, "Weaver"),
+    onStepFinish(step) {
+      log.step(step, "agent.Weaver.step.finish");
+    },
+    async onFinish(event) {
+      log.finish(event, "agent.Weaver.finish");
+      await onFinish(event as unknown as OnFinishEvent<ToolSet>);
+    },
+    onError({ error }) {
+      log.error({ error, agent: "weaver" }, "agent.stream.error");
+      stream.update({ type: "agent-status", agentId: null });
+    },
   });
 }
 
@@ -228,9 +241,10 @@ async function continueStory(
   onFinish: (event: OnFinishEvent<ToolSet>) => Promise<void>,
   stream: StreamUpdater,
 ) {
-  const log = logger.child({
+  const log = createLLMLogging({
     traceId: experimental_context.traceId,
     action: "continueStory",
+    chatId,
   });
 
   // Step 1: Sentinel 审查用户输入
@@ -239,10 +253,17 @@ async function continueStory(
     agentId: "Sentinel",
     statusText: AGENT_STATUS_TEXT.Sentinel,
   });
+
+  log.info("agent.Sentinel.start");
+
   const sentinelInputResult = await sentinel.stream({
     prompt: messages,
     experimental_context,
+    onStepFinish(step) {
+      log.step(step, "agent.Sentinel.step.finish");
+    },
     async onFinish(event) {
+      log.finish(event, "agent.Sentinel.finish");
       const hasJudgementReject = event.toolCalls.some(
         (tc) =>
           tc.dynamic !== true &&
@@ -257,7 +278,10 @@ async function continueStory(
         }
       }
     },
-    onError: makeStreamOnError(log, stream, "Sentinel"),
+    onError({ error }) {
+      log.error({ error, agent: "sentinel" }, "agent.stream.error");
+      stream.update({ type: "agent-status", agentId: null });
+    },
   });
 
   const judgement = (await sentinelInputResult.toolCalls).findLast(
@@ -265,13 +289,16 @@ async function continueStory(
   );
 
   if (!judgement) {
-    log.error("Sentinel did not call judgeInput");
+    log.error("agent.Sentinel.judgement.missing");
     stream.update({ type: "agent-status", agentId: null });
     return sentinelInputResult;
   }
 
   if (judgement.input.decision === "reject") {
-    log.debug({ reason: judgement.input.content }, "Sentinel Review Rejected");
+    log.info(
+      { reason: judgement.input.content },
+      "agent.Sentinel.judgement.reject",
+    );
     stream.update({ type: "agent-status", agentId: null });
     return sentinelInputResult;
   }
@@ -282,6 +309,7 @@ async function continueStory(
     agentId: "Oracle",
     statusText: AGENT_STATUS_TEXT.Oracle,
   });
+  log.info("agent.Oracle.start");
   const oraclePrompt = [
     ...messages.slice(0, -1),
     {
@@ -294,6 +322,7 @@ async function continueStory(
     prompt: oraclePrompt,
     experimental_context,
     onStepFinish(step) {
+      log.step(step, "agent.Oracle.step.finish");
       const toolName = step.toolCalls[0]?.toolName;
       if (toolName && ORACLE_TOOL_STATUS[toolName]) {
         stream.update({
@@ -304,14 +333,27 @@ async function continueStory(
       }
     },
     onFinish(event) {
+      log.finish(event, "agent.Oracle.finish");
       if (experimental_context.tokenUsage) {
         addUsage(experimental_context.tokenUsage, event.totalUsage);
       }
     },
-    onError: makeStreamOnError(log, stream, "Oracle"),
+    onError({ error }) {
+      log.error({ error, agent: "oracle" }, "agent.stream.error");
+      stream.update({ type: "agent-status", agentId: null });
+    },
   });
 
   const oracleText = await oracleResult.text;
+
+  if (oracleText.length === 0) {
+    log.error(
+      { oracleResult: await oracleResult },
+      "agent.Oracle.output.empty",
+    );
+    stream.update({ type: "agent-status", agentId: null });
+    return oracleResult;
+  }
 
   stream.update({
     type: "agent-status",
@@ -327,17 +369,24 @@ async function continueStory(
     },
   ] as ModelMessage[];
 
-  log.debug(prompt, "weaver input");
+  log.debug(prompt, "agent.Weaver.prompt");
 
   return await weaver.stream({
     prompt: prompt,
     experimental_context,
+    onStepFinish(step) {
+      log.step(step, "agent.Weaver.step.finish");
+    },
     onAbort(event) {
-      log.info(event, "weaver abort");
+      log.info(event, "agent.Weaver.abort");
       stream.update({ type: "agent-status", agentId: null });
     },
-    onError: makeStreamOnError(log, stream, "Weaver"),
+    onError({ error }) {
+      log.error({ error, agent: "weaver" }, "agent.stream.error");
+      stream.update({ type: "agent-status", agentId: null });
+    },
     async onFinish(options) {
+      log.finish(options, "agent.Weaver.finish");
       const now = new Date();
       await db.insert(history).values({
         id: nanoid(),
@@ -355,7 +404,7 @@ export async function continueConversation(chatId: string, prompt: string) {
     throw new InvalidInputError({ message: "input is empty!" });
   }
   const traceId = nanoid();
-  const log = logger.child({ traceId, action: "continueConversation" });
+  const log = createLLMLogging({ traceId, action: "continueConversation" });
   const userMessageId = nanoid();
 
   const now = new Date();
@@ -363,7 +412,7 @@ export async function continueConversation(chatId: string, prompt: string) {
   const session = await getSessionWithRedirect();
   await ensureChatAccess(chatId, session.user.id);
 
-  log.info({ chatId, prompt }, "Input");
+  log.info({ chatId, prompt }, "action.input");
 
   const history = await getChatHistory(chatId);
   const storyData = await db.query.story.findFirst({
@@ -378,12 +427,12 @@ export async function continueConversation(chatId: string, prompt: string) {
       (tc) => tc.name === "createQuestion" && !tc.result,
     );
 
-  let recnetMessages: MessageWithToolCall | NewMessage | undefined =
+  let latestModelMessages: MessageWithToolCall | NewMessage | undefined =
     latestMessage;
   if (recentQuestion) {
     recentQuestion.result = prompt;
   } else {
-    recnetMessages = {
+    latestModelMessages = {
       id: userMessageId,
       chatId,
       role: "user" as const,
@@ -394,14 +443,17 @@ export async function continueConversation(chatId: string, prompt: string) {
 
   const storyMessage = toStoryModelMessage(storyData);
   const historyMessage = toHistoryModelMessage(history);
-  const inputMessages = toModelMessage(recnetMessages);
-  const modelMessage = [storyMessage, historyMessage, ...inputMessages].filter(
-    (m) => m !== undefined,
-  );
+  const latestInputMessage = toModelMessage(latestModelMessages);
+  const modelMessage = [
+    storyMessage,
+    historyMessage,
+    ...latestInputMessage,
+  ].filter((m) => m !== undefined);
+  const contextTokens = estimateModelMessageTokens(modelMessage);
 
   log.debug(
-    { recnetMessages, inputMessages, modelMessage },
-    "model message input",
+    { inputMessages: latestInputMessage, contextTokens },
+    "action.model-message.input",
   );
 
   const stream = createStreamableValue<UIMessageChunk | AgentStatusEvent>();
@@ -443,7 +495,7 @@ export async function continueConversation(chatId: string, prompt: string) {
           tokenUsage: experimental_context.tokenUsage,
         });
       } catch (error) {
-        log.error({ error }, "continueConversation.onFinish.failed");
+        log.error({ error }, "action.finish.failed");
       }
     };
 
@@ -453,21 +505,19 @@ export async function continueConversation(chatId: string, prompt: string) {
 
       const result = isSettingComplete
         ? await continueStory(
-            chatId,
-            modelMessage,
-            experimental_context,
-            onFinish,
-            stream,
-          )
+          chatId,
+          modelMessage,
+          experimental_context,
+          onFinish,
+          stream,
+        )
         : await continueCreateStory(
-            chatId,
-            modelMessage,
-            experimental_context,
-            onFinish,
-            stream,
-          );
-
-      log.debug("stream ui message start");
+          chatId,
+          modelMessage,
+          experimental_context,
+          onFinish,
+          stream,
+        );
 
       const uiMessages = result.toUIMessageStream();
 
@@ -477,10 +527,8 @@ export async function continueConversation(chatId: string, prompt: string) {
 
       stream.update({ type: "agent-status", agentId: null });
       stream.done();
-      log.debug("stream ui message done");
     } catch (error) {
-      log.error({ error }, "continueConversation.stream.failed");
-      log.error({ modelMessage }, "continueConversation.stream.failed.input");
+      log.error({ error, modelMessage }, "action.stream.failed");
       stream.update({ type: "agent-status", agentId: null });
       stream.error(error);
     }

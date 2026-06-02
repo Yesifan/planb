@@ -12,6 +12,7 @@ import {
 import { generateText, hasToolCall, stepCountIs, streamText } from "ai";
 
 import logger from "../logger";
+import { buildAgentFinishLogPayload } from "./logging";
 import { primaryModel, secondaryModel } from "./provider";
 import BaseTools from "./tool";
 import { agentTools } from "./tool/agent";
@@ -138,13 +139,7 @@ export class PlanbAgent<
       ) as GenerateTextOnStepFinishCallback<TOOLS>,
     });
 
-    log.debug(
-      {
-        text: result.text,
-        reasoning: result.reasoningText,
-      },
-      "Agent Generate End",
-    );
+    log.debug(buildAgentFinishLogPayload(result), "Agent Generate End");
 
     return result;
   }

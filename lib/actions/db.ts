@@ -7,6 +7,12 @@ import { performance } from "perf_hooks";
 import { getSessionWithRedirect } from "@/lib/auth/server";
 import { db } from "@/lib/db";
 import { message } from "@/lib/db/schema";
+import { estimateModelMessageTokens } from "@/lib/llm/token";
+import {
+  toHistoryModelMessage,
+  toModelMessage,
+  toStoryModelMessage,
+} from "@/lib/llm/utils";
 import logger from "@/lib/logger";
 
 export async function getChatWithStory(chatId: string) {
@@ -46,7 +52,11 @@ export async function getChatWithStory(chatId: string) {
 
 export async function getChatTokens(
   chatId: string,
-): Promise<{ inputTokens: number; outputTokens: number }> {
+): Promise<{
+  inputTokens: number;
+  outputTokens: number;
+  contextTokens: number;
+}> {
   const start = performance.now();
   const session = await getSessionWithRedirect();
 
@@ -71,10 +81,34 @@ export async function getChatTokens(
       })
       .from(message)
       .where(eq(message.chatId, chatId));
+    const storyData = await db.query.story.findFirst({
+      where: { chatId },
+    });
+    const histories = (
+      await db.query.history.findMany({
+        where: { chatId },
+        orderBy: { createdAt: "desc" },
+        limit: 100,
+      })
+    ).reverse();
+    const latestMessage = await db.query.message.findFirst({
+      with: {
+        toolCalls: true,
+      },
+      where: { chatId },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
 
     return {
       inputTokens: Number(row?.inputTokens ?? 0),
       outputTokens: Number(row?.outputTokens ?? 0),
+      contextTokens: estimateModelMessageTokens([
+        toStoryModelMessage(storyData),
+        toHistoryModelMessage(histories),
+        ...toModelMessage(latestMessage),
+      ]),
     };
   } catch (error) {
     logger.error({ chatId, error }, "getChatTokens.error");
