@@ -80,6 +80,8 @@ export function ChatRightSidebarTrigger({
       variant="ghost"
       size="icon-sm"
       className={cn(className)}
+      aria-label={isOpen ? "关闭 Inspector" : "打开 Inspector"}
+      title={isOpen ? "关闭 Inspector" : "打开 Inspector"}
       onClick={(event) => {
         onClick?.(event);
         toggleSidebar();
@@ -87,7 +89,9 @@ export function ChatRightSidebarTrigger({
       {...props}
     >
       <Icon />
-      <span className="sr-only">Toggle Chat Right Sidebar</span>
+      <span className="sr-only">
+        {isOpen ? "关闭 Inspector" : "打开 Inspector"}
+      </span>
     </Button>
   );
 }
@@ -132,11 +136,18 @@ export function ChatRightSidebar({
   }, [isStreaming, fetchTokens]);
 
   return (
-    <Sidebar side="right" collapsible="offcanvas" className="absolute h-full">
-      <SidebarHeader className="py-3">
+    <Sidebar
+      side="right"
+      collapsible="offcanvas"
+      className="absolute h-full md:border-l"
+    >
+      <SidebarHeader className="border-sidebar-border/70 border-b py-3">
         <div className="flex items-center justify-between gap-2">
-          <h3 className="text-sm font-semibold">Token 用量</h3>
-          <ChatRightSidebarTrigger className="size-7" />
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold">Inspector</h3>
+            <p className="text-muted-foreground text-xs">Token 用量</p>
+          </div>
+          <ChatRightSidebarTrigger className="size-7 rounded-lg" />
         </div>
       </SidebarHeader>
       <SidebarContent>

@@ -84,7 +84,11 @@ export default function StoryPage() {
 
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden">
-      <SidebarTrigger className="bg-background/80 hover:bg-accent/10 absolute top-3 left-3 z-50 rounded-full shadow-sm backdrop-blur" />
+      <SidebarTrigger
+        className="bg-background/95 hover:bg-muted absolute top-3 left-3 z-50 rounded-lg border md:hidden"
+        aria-label="打开故事列表"
+        title="打开故事列表"
+      />
       {!chatId && <CreateStoryForm onSubmit={onCreate} />}
       {isLoading && (
         <div className="flex h-screen flex-col items-center justify-center gap-4">
@@ -117,7 +121,7 @@ export default function StoryPage() {
               className="contents"
             >
               <div className="relative flex min-w-0 flex-1 flex-col">
-                <ChatRightSidebarTrigger className="bg-background/80 hover:bg-accent/10 absolute top-3 right-3 z-20 rounded-full backdrop-blur" />
+                <ChatRightSidebarTrigger className="bg-background/95 hover:bg-muted absolute top-3 right-3 z-20 rounded-lg border" />
                 <Conversation className="flex-1">
                   <ConversationContent className="w-full md:w-3xl">
                     {messages.map((message) => (
