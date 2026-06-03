@@ -75,12 +75,12 @@ export const exMachina = tool({
 
 export const reviewBranch = tool({
   description:
-    "调用裁决者 Arbiter 对故事推演进行逻辑审查与打分。Arbiter 会基于世界观与历史年表，对推演按多个维度进行评估，输出审查结果。",
+    "调用裁决者 Arbiter 对故事推演进行逻辑审查与打分。content 不能只传故事大纲，必须同时包含大纲生成依据、骰子调用记录、骰子结果解释、关键推理过程和自检说明，方便 Arbiter 判断难度、因果、时间线和人物行为是否成立。",
   inputSchema: z.object({
     content: z
       .string()
       .describe(
-        "待审查的完整故事推演内容，包括玩家操作、剧情大纲、暗线叙事、决策岔口等全部内容",
+        "待审查材料。必须包含：1. 玩家操作；2. 完整故事推演大纲；3. 骰子记录（每次 dice 的 reason 原文、点数、目标、预估难度/DC、结果解释）；4. 大纲推理过程（关键因果链、人物动机、时间线、暗线依据、为什么停在该决策岔口）；5. 自检说明（哪些地方可能有争议，需要 Arbiter 重点看）。",
       ),
   }),
   async execute({ content }, { experimental_context }) {
@@ -103,7 +103,7 @@ export const reviewBranch = tool({
         historyMessage,
         {
           role: "user",
-          content: `## 待审查的故事推演\n${content}\n\n请对该推演进行逻辑审查与打分。`,
+          content: `## 待审查材料\n${content}\n\n请综合故事推演、骰子记录、结果解释和推理过程进行逻辑审查与打分。不要只审查最终大纲表面文本。`,
         },
       ].filter((m): m is ModelMessage => m !== undefined),
       experimental_context,

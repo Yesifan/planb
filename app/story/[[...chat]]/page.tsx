@@ -14,10 +14,7 @@ import {
   MessageResponse,
 } from "@/components/ai-elements/message";
 import { Shimmer } from "@/components/ai-elements/shimmer";
-import {
-  ChatRightSidebar,
-  ChatRightSidebarTrigger,
-} from "@/components/chat-right-sidebar";
+import { ChatRightSidebar } from "@/components/chat-right-sidebar";
 import CreateStoryForm, {
   createStoryFormSchema,
 } from "@/components/create-story-form";
@@ -31,7 +28,7 @@ import StoryQuestion from "@/components/story-question";
 import StoryRejection from "@/components/story-rejection";
 import StorySetting from "@/components/story-setting";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import { Spinner } from "@/components/ui/spinner";
 import { useStoryContext } from "@/hooks/use-story";
 import { useStoryLayout } from "@/hooks/use-story-layout";
@@ -84,11 +81,6 @@ export default function StoryPage() {
 
   return (
     <div className="relative flex flex-1 flex-col overflow-hidden">
-      <SidebarTrigger
-        className="bg-background/95 hover:bg-muted absolute top-3 left-3 z-50 rounded-lg border md:hidden"
-        aria-label="打开故事列表"
-        title="打开故事列表"
-      />
       {!chatId && <CreateStoryForm onSubmit={onCreate} />}
       {isLoading && (
         <div className="flex h-screen flex-col items-center justify-center gap-4">
@@ -111,17 +103,16 @@ export default function StoryPage() {
       {chatId && !isLoading && !error && (
         <>
           <StoryHeader chat={chat} />
-          <StorySetting story={story} />
+          <SidebarProvider
+            open={isRightSidebarOpen}
+            onOpenChange={setIsRightSidebarOpen}
+            defaultOpen={false}
+            className="contents"
+          >
+            <StorySetting story={story} />
 
-          <div className="relative flex min-h-0 flex-1 overflow-hidden">
-            <SidebarProvider
-              open={isRightSidebarOpen}
-              onOpenChange={setIsRightSidebarOpen}
-              defaultOpen={false}
-              className="contents"
-            >
+            <div className="relative flex min-h-0 flex-1 overflow-hidden">
               <div className="relative flex min-w-0 flex-1 flex-col">
-                <ChatRightSidebarTrigger className="bg-background/95 hover:bg-muted absolute top-3 right-3 z-20 rounded-lg border" />
                 <Conversation className="flex-1">
                   <ConversationContent className="w-full md:w-3xl">
                     {messages.map((message) => (
@@ -208,8 +199,8 @@ export default function StoryPage() {
                 )}
               </div>
               <ChatRightSidebar chatId={chatId} isStreaming={isStreaming} />
-            </SidebarProvider>
-          </div>
+            </div>
+          </SidebarProvider>
         </>
       )}
     </div>

@@ -52,7 +52,6 @@ export function buildAgentStepLogPayload<TOOLS extends ToolSet>(
     finishReason: step.finishReason,
     toolCalls: step.toolCalls,
     toolResults: step.toolResults,
-    usage: step.usage,
   };
 }
 
