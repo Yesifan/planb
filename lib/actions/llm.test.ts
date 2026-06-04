@@ -74,6 +74,66 @@ describe("createStory", () => {
 
 describe("continueConversation", () => {
   describe("continueCreateStory", () => {
+    test("should return persisted assistant message id when user message is created", async () => {
+      const now = new Date();
+      const chatId = "cc-message-id";
+
+      await db.insert(chat).values({
+        id: chatId,
+        userId: "test-user",
+        title: "Test",
+        createdAt: now,
+        updatedAt: now,
+      });
+      await db.insert(story).values({
+        id: "cc-story-message-id",
+        chatId,
+        source: "三国",
+        singularity: "特异点",
+        createdAt: now,
+        updatedAt: now,
+      });
+      await db.insert(message).values({
+        id: "cc-asst-message-id",
+        chatId,
+        role: "assistant",
+        text: "请提供更多设定",
+        createdAt: now,
+      });
+
+      setMockResponses([
+        {
+          kind: "text",
+          text: "设定补充完成",
+          usage: { inputTokens: 30, outputTokens: 40 },
+        },
+        {
+          kind: "text",
+          text: "第一章：风云再起...",
+          usage: { inputTokens: 50, outputTokens: 60 },
+        },
+      ]);
+
+      const { continueConversation } = await import("@/lib/actions/llm");
+      const result = await continueConversation(chatId, "继续");
+
+      for await (const _ of readStreamableValue(result.content)) void _;
+      await new Promise((r) => setTimeout(r, 50));
+
+      const assistantMessage = await db.query.message.findFirst({
+        where: { id: result.messageId },
+      });
+      expect(assistantMessage?.role).toBe("assistant");
+      expect(assistantMessage?.text).toContain("风云再起");
+
+      const userMessages = await db.query.message.findMany({
+        where: { chatId, role: "user" },
+      });
+      expect(userMessages.map((m) => m.id)).not.toContain(result.messageId);
+
+      resetMock();
+    });
+
     test("should run archivist+weaver when story is incomplete", async () => {
       const now = new Date();
       const chatId = "cc-incomplete-story";

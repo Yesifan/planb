@@ -192,7 +192,7 @@ async function continueCreateStory(
       log.step(step, "agent.Archivist.step.finish");
     },
   });
-  log.finish(archivistResult, "agent.Archivist.finish");
+
   if (experimental_context.tokenUsage) {
     addUsage(experimental_context.tokenUsage, archivistResult.totalUsage);
   }
@@ -213,9 +213,6 @@ async function continueCreateStory(
       },
     ],
     experimental_context,
-    onStepFinish(step) {
-      log.step(step, "agent.Weaver.step.finish");
-    },
     async onFinish(event) {
       log.finish(event, "agent.Weaver.finish");
       await onFinish(event as unknown as OnFinishEvent<ToolSet>);
@@ -259,9 +256,6 @@ async function continueStory(
   const sentinelInputResult = await sentinel.stream({
     prompt: messages,
     experimental_context,
-    onStepFinish(step) {
-      log.step(step, "agent.Sentinel.step.finish");
-    },
     async onFinish(event) {
       log.finish(event, "agent.Sentinel.finish");
       const hasJudgementReject = event.toolCalls.some(
@@ -333,7 +327,6 @@ async function continueStory(
       }
     },
     onFinish(event) {
-      log.finish(event, "agent.Oracle.finish");
       if (experimental_context.tokenUsage) {
         addUsage(experimental_context.tokenUsage, event.totalUsage);
       }
@@ -374,9 +367,6 @@ async function continueStory(
   return await weaver.stream({
     prompt: prompt,
     experimental_context,
-    onStepFinish(step) {
-      log.step(step, "agent.Weaver.step.finish");
-    },
     onAbort(event) {
       log.info(event, "agent.Weaver.abort");
       stream.update({ type: "agent-status", agentId: null });
@@ -406,6 +396,7 @@ export async function continueConversation(chatId: string, prompt: string) {
   const traceId = nanoid();
   const log = createLLMLogging({ traceId, action: "continueConversation" });
   const userMessageId = nanoid();
+  const assistantMessageId = nanoid();
 
   const now = new Date();
 
@@ -469,7 +460,6 @@ export async function continueConversation(chatId: string, prompt: string) {
       event: Parameters<typeof saveMessageWithTool>[1],
     ) => {
       try {
-        const assistantMessageId = nanoid();
         if (recentQuestion) {
           await db
             .update(toolCall)
@@ -505,19 +495,19 @@ export async function continueConversation(chatId: string, prompt: string) {
 
       const result = isSettingComplete
         ? await continueStory(
-          chatId,
-          modelMessage,
-          experimental_context,
-          onFinish,
-          stream,
-        )
+            chatId,
+            modelMessage,
+            experimental_context,
+            onFinish,
+            stream,
+          )
         : await continueCreateStory(
-          chatId,
-          modelMessage,
-          experimental_context,
-          onFinish,
-          stream,
-        );
+            chatId,
+            modelMessage,
+            experimental_context,
+            onFinish,
+            stream,
+          );
 
       const uiMessages = result.toUIMessageStream();
 
@@ -536,7 +526,7 @@ export async function continueConversation(chatId: string, prompt: string) {
 
   return {
     id: chatId,
-    messageId: userMessageId,
+    messageId: assistantMessageId,
     content: stream.value,
   };
 }
