@@ -1,15 +1,20 @@
 "use client";
 
-import type { ComponentProps } from "react";
-import { useCallback } from "react";
+import type { ComponentProps, ReactElement, ReactNode } from "react";
+import {
+  Children,
+  cloneElement,
+  isValidElement,
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 
 import type { PromptInputMessage } from "@/components/ai-elements/prompt-input";
 import {
   PromptInput,
-  PromptInputProvider,
   PromptInputSubmit,
   PromptInputTextarea,
-  usePromptInputController,
 } from "@/components/ai-elements/prompt-input";
 import { cn } from "@/lib/utils";
 
@@ -47,15 +52,10 @@ export const StoryPromptInput = ({
   className,
   ...props
 }: StoryPromptInputProps) => {
-  const controller = usePromptInputController();
-
-  const effectiveValue = value ?? controller.textInput.value;
-  const effectiveOnChange = onChange ?? controller.textInput.setInput;
-
   return (
     <PromptInputTextarea
-      value={effectiveValue}
-      onChange={(e) => effectiveOnChange(e.currentTarget.value)}
+      value={value}
+      onChange={(e) => onChange?.(e.currentTarget.value)}
       className={cn("pr-12", className)}
       {...props}
     />
@@ -76,9 +76,7 @@ export const StoryPromptSubmit = ({
   className,
   ...props
 }: StoryPromptSubmitProps) => {
-  const controller = usePromptInputController();
-  const effectiveInput = input ?? controller.textInput.value;
-  const isDisabled = !effectiveInput.trim() || disabled;
+  const isDisabled = !input?.trim() || disabled;
 
   return (
     <PromptInputSubmit
@@ -90,7 +88,7 @@ export const StoryPromptSubmit = ({
 };
 
 type StoryPromptProps = StoryInputProps<string> & {
-  children: React.ReactNode;
+  children: ReactNode;
 };
 
 export const StoryPrompt = ({
@@ -101,20 +99,45 @@ export const StoryPrompt = ({
   className,
   children,
 }: StoryPromptProps) => {
+  const [text, setText] = useState(input);
+
+  useEffect(() => {
+    setText(input);
+  }, [input]);
+
   const handleSubmit = useCallback(
     async (message: Parameters<typeof onSubmit>[0]) => {
       if (disabled) return;
-      await onSubmit(message);
+      setText("");
       onInputChange("");
+      await onSubmit(message);
     },
     [disabled, onSubmit, onInputChange],
   );
 
+  const controlledChildren = Children.map(children, (child) => {
+    if (!isValidElement(child)) return child;
+
+    if (child.type === StoryPromptInput) {
+      return cloneElement(child as ReactElement<StoryPromptInputProps>, {
+        onChange: setText,
+        value: text,
+      });
+    }
+
+    if (child.type === StoryPromptSubmit) {
+      return cloneElement(child as ReactElement<StoryPromptSubmitProps>, {
+        disabled,
+        input: text,
+      });
+    }
+
+    return child;
+  });
+
   return (
-    <PromptInputProvider initialInput={input}>
-      <PromptInput onSubmit={handleSubmit} className={className}>
-        {children}
-      </PromptInput>
-    </PromptInputProvider>
+    <PromptInput onSubmit={handleSubmit} className={className}>
+      {controlledChildren}
+    </PromptInput>
   );
 };

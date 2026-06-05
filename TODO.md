@@ -5,7 +5,9 @@
 - [ ] 没有 copy
 - [ ] 主角五维系统
 - [ ] 世界当前快照系统
-- [ ] 发送message后输入框清空
+- [ ] 任务系统
+- [x] 发送message后输入框清空
+  - 参考 AI Elements Prompt Input 示例，在 `components/story-prompt.tsx` 使用 React state 控制输入框，提交时立即清空本地 `text`，不修改通用 `PromptInputProvider` 行为。
 - [ ] token 记录和显示
   - 记录部分已完成：
     - 在 `lib/llm/type.ts` 的 `ToolContext` 增加 `tokenUsage?: { inputTokens, outputTokens }` 字段
