@@ -13,10 +13,19 @@ import {
   message,
   MessageWithToolCall,
   NewMessage,
+  ProtagonistState,
+  Story,
   story,
   toolCall,
 } from "@/lib/db/schema";
-import { archivist, oracle, sentinel, weaver } from "@/lib/llm";
+import {
+  archivist,
+  oracle,
+  sentinel,
+  statekeeper,
+  taskmaster,
+  weaver,
+} from "@/lib/llm";
 import { saveMessageWithTool } from "@/lib/llm/db";
 import {
   AccessDeniedError,
@@ -25,10 +34,15 @@ import {
 } from "@/lib/llm/errors";
 import { createLLMLogging } from "@/lib/llm/logging";
 import { estimateModelMessageTokens } from "@/lib/llm/token";
-import { addUsage, createTokenAccumulator } from "@/lib/llm/usage";
+import {
+  addUsage,
+  createTokenAccumulator,
+  UsageInput,
+} from "@/lib/llm/usage";
 import {
   toHistoryModelMessage,
   toModelMessage,
+  toRuntimeStateModelMessage,
   toStoryModelMessage,
 } from "@/lib/llm/utils";
 
@@ -61,6 +75,8 @@ const AGENT_STATUS_TEXT = {
   Oracle: "正在生成大纲...",
   Weaver: "正在撰写故事...",
   Archivist: "正在构建世界观...",
+  Statekeeper: "正在整理世界状态...",
+  Taskmaster: "正在整理任务...",
 } as const;
 
 const ORACLE_TOOL_STATUS: Record<string, string> = {
@@ -68,6 +84,161 @@ const ORACLE_TOOL_STATUS: Record<string, string> = {
   reviewBranch: "正在审查分支...",
   activateSystem: "正在激活系统...",
 };
+
+async function runStateAgentJob({
+  agentName,
+  expectedToolName,
+  result,
+  tokenUsage,
+}: {
+  agentName: "Statekeeper" | "Taskmaster";
+  expectedToolName:
+    | "initializeStoryState"
+    | "updateStoryState"
+    | "initializeTaskState"
+    | "updateTaskState";
+  result: {
+    steps: Array<{ toolCalls: Array<{ toolName: string }> }>;
+    totalUsage: UsageInput;
+  };
+  tokenUsage?: ToolContext["tokenUsage"];
+}) {
+  const toolCalls = result.steps.flatMap((step) => step.toolCalls);
+  if (!toolCalls.some((toolCall) => toolCall.toolName === expectedToolName)) {
+    throw new Error(`${agentName} did not call ${expectedToolName}`);
+  }
+  if (tokenUsage) {
+    addUsage(tokenUsage, result.totalUsage);
+  }
+}
+
+function buildRuntimePrompt({
+  storyData,
+  protagonistData,
+  instruction,
+}: {
+  storyData?: Story;
+  protagonistData?: ProtagonistState;
+  instruction: string;
+}) {
+  return [
+    toStoryModelMessage(storyData),
+    toRuntimeStateModelMessage({
+      protagonistState: protagonistData,
+      story: storyData,
+    }),
+    { role: "user", content: instruction } as ModelMessage,
+  ].filter((message): message is ModelMessage => message !== undefined);
+}
+
+function startRuntimeStateUpdates({
+  chatId,
+  experimental_context,
+  oracleText,
+}: {
+  chatId: string;
+  experimental_context: ToolContext;
+  oracleText?: string;
+}) {
+  const log = createLLMLogging({
+    traceId: experimental_context.traceId,
+    action: "runtimeState",
+    chatId,
+  });
+  const run = async (
+    job: "state" | "task",
+    operationMode: "initialize" | "update",
+    execute: () => Promise<void>,
+  ) => {
+    try {
+      await execute();
+    } catch (error) {
+      if (operationMode === "initialize") {
+        try {
+          await execute();
+          return;
+        } catch (retryError) {
+          log.error(
+            { error: retryError, firstError: error, job, operationMode },
+            "runtime_state.retry.failed",
+          );
+          return;
+        }
+      }
+      log.error({ error, job, operationMode }, "runtime_state.update.failed");
+    }
+  };
+  const loadState = async () => ({
+    storyData: await db.query.story.findFirst({ where: { chatId } }),
+    protagonistData: await db.query.protagonistState.findFirst({
+      where: { chatId },
+    }),
+  });
+
+  const stateJob = (async () => {
+    const { storyData, protagonistData } = await loadState();
+    const operationMode =
+      protagonistData && storyData?.worldSnapshot ? "update" : "initialize";
+    return run("state", operationMode, async () => {
+      const stateInstruction =
+        operationMode === "initialize"
+          ? "当前没有旧的主角五维或世界快照。请根据故事设定初始化主角五维和世界当前快照，必须调用 initializeStoryState。"
+          : oracleText
+            ? `当前已存在旧的主角五维和世界快照。请根据以下 Oracle 大纲更新主角五维数值和世界当前快照，必须调用 updateStoryState。updateStoryState 的 input 只能包含 profile、dimensionValues、worldSnapshot；dimensionValues 是按已有五维顺序排列的五个数值，不要提交维度名称或描述。\n\n# Oracle 大纲\n${oracleText}`
+            : "当前已存在旧的主角五维和世界快照。请根据最新故事设定和已有运行状态更新主角五维数值和世界当前快照，必须调用 updateStoryState。updateStoryState 的 input 只能包含 profile、dimensionValues、worldSnapshot；dimensionValues 是按已有五维顺序排列的五个数值，不要提交维度名称或描述。";
+    const result = await statekeeper.generate({
+      prompt: buildRuntimePrompt({
+        storyData,
+        protagonistData,
+          instruction: stateInstruction,
+      }),
+      experimental_context,
+    });
+    await runStateAgentJob({
+      agentName: "Statekeeper",
+      expectedToolName:
+          operationMode === "initialize"
+            ? "initializeStoryState"
+            : "updateStoryState",
+      result,
+      tokenUsage: experimental_context.tokenUsage,
+    });
+    });
+  })();
+
+  const taskJob = (async () => {
+    const { storyData, protagonistData } = await loadState();
+    const operationMode = storyData?.taskState ? "update" : "initialize";
+    return run("task", operationMode, async () => {
+      const taskInstruction =
+        operationMode === "initialize"
+          ? "当前没有旧的任务状态。请根据故事设定初始化任务系统，允许暂无任务，必须调用 initializeTaskState。"
+          : oracleText
+            ? `当前已存在旧的任务状态。请根据以下 Oracle 大纲更新任务列表，必须调用 updateTaskState。\n\n# Oracle 大纲\n${oracleText}`
+            : "当前已存在旧的任务状态。请根据最新故事设定和已有任务状态更新任务列表，必须调用 updateTaskState。";
+    const result = await taskmaster.generate({
+      prompt: buildRuntimePrompt({
+        storyData,
+        protagonistData,
+          instruction: taskInstruction,
+      }),
+      experimental_context,
+    });
+    await runStateAgentJob({
+      agentName: "Taskmaster",
+      expectedToolName:
+          operationMode === "initialize"
+            ? "initializeTaskState"
+            : "updateTaskState",
+      result,
+      tokenUsage: experimental_context.tokenUsage,
+    });
+    });
+  })();
+
+  experimental_context.pendingStateUpdates = [stateJob, taskJob];
+  return experimental_context.pendingStateUpdates;
+}
 
 export async function createStory(source: string, singularity: string) {
   const traceId = nanoid();
@@ -203,7 +374,7 @@ async function continueCreateStory(
     statusText: AGENT_STATUS_TEXT.Weaver,
   });
   log.info("agent.Weaver.start");
-  return await weaver.stream({
+  const result = await weaver.stream({
     prompt: [
       ...archivistResult.response.messages,
       {
@@ -215,6 +386,7 @@ async function continueCreateStory(
     experimental_context,
     async onFinish(event) {
       log.finish(event, "agent.Weaver.finish");
+      await Promise.all(experimental_context.pendingStateUpdates ?? []);
       await onFinish(event as unknown as OnFinishEvent<ToolSet>);
     },
     onError({ error }) {
@@ -222,6 +394,16 @@ async function continueCreateStory(
       stream.update({ type: "agent-status", agentId: null });
     },
   });
+  stream.update({
+    type: "agent-status",
+    agentId: "Statekeeper",
+    statusText: AGENT_STATUS_TEXT.Statekeeper,
+  });
+  startRuntimeStateUpdates({
+    chatId,
+    experimental_context,
+  });
+  return result;
 }
 
 /**
@@ -364,7 +546,7 @@ async function continueStory(
 
   log.debug(prompt, "agent.Weaver.prompt");
 
-  return await weaver.stream({
+  const result = await weaver.stream({
     prompt: prompt,
     experimental_context,
     onAbort(event) {
@@ -384,9 +566,21 @@ async function continueStory(
         content: oracleText,
         createdAt: now,
       });
+      await Promise.all(experimental_context.pendingStateUpdates ?? []);
       await onFinish(options as unknown as OnFinishEvent<ToolSet>);
     },
   });
+  stream.update({
+    type: "agent-status",
+    agentId: "Statekeeper",
+    statusText: AGENT_STATUS_TEXT.Statekeeper,
+  });
+  startRuntimeStateUpdates({
+    chatId,
+    experimental_context,
+    oracleText,
+  });
+  return result;
 }
 
 export async function continueConversation(chatId: string, prompt: string) {
@@ -405,9 +599,12 @@ export async function continueConversation(chatId: string, prompt: string) {
 
   log.info({ chatId, prompt }, "action.input");
 
-  const history = await getChatHistory(chatId);
+  const history = await getChatHistory(chatId, 20);
   const storyData = await db.query.story.findFirst({
     where: { chatId: chatId },
+  });
+  const protagonistData = await db.query.protagonistState.findFirst({
+    where: { chatId },
   });
   const latestMessage = await getLastestChatMessage(chatId);
 
@@ -433,10 +630,15 @@ export async function continueConversation(chatId: string, prompt: string) {
   }
 
   const storyMessage = toStoryModelMessage(storyData);
+  const runtimeMessage = toRuntimeStateModelMessage({
+    protagonistState: protagonistData,
+    story: storyData,
+  });
   const historyMessage = toHistoryModelMessage(history);
   const latestInputMessage = toModelMessage(latestModelMessages);
   const modelMessage = [
     storyMessage,
+    runtimeMessage,
     historyMessage,
     ...latestInputMessage,
   ].filter((m) => m !== undefined);

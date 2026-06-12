@@ -32,7 +32,9 @@ export type AgentId =
   | "ExMachina"
   | "Oracle"
   | "Sentinel"
+  | "Statekeeper"
   | "System"
+  | "Taskmaster"
   | "Titler"
   | "Weaver"
   | (string & {});
@@ -104,6 +106,7 @@ export interface ToolContext {
   chatId: string;
   traceId?: string;
   tokenUsage?: { inputTokens: number; outputTokens: number };
+  pendingStateUpdates?: Promise<void>[];
 }
 
 export interface LogContext {

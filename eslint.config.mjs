@@ -21,6 +21,7 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".agents/*",
+    ".local-ignore/**",
     ".next/**",
     "out/**",
     "build/**",

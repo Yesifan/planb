@@ -5,6 +5,8 @@ tools:
   - createStory
   - createQuestion
   - exMachina
+  - initializeStoryState
+  - initializeTaskState
 stopWhen:
   hasToolCall:
     - createStory
@@ -36,7 +38,10 @@ stopWhen:
    - 上述问题中用户已经明确提供了的，则不要再次询问
 
 3. 拿到用户回答，所有设定确认完成后：
-   - 调用 createStory tool 正式生成故事设定
+   - 先调用 `initializeStoryState` 初始化主角五维和世界当前快照
+   - 再调用 `initializeTaskState` 初始化任务系统；如果开局没有明确任务，使用固定任务板并写 `暂无`
+   - 最后调用 `createStory` tool 正式生成故事设定
+   - 初始化阶段工具调用顺序必须是：`initializeStoryState` → `initializeTaskState` → `createStory`
 
 # Core Generation Directives
 
@@ -139,3 +144,47 @@ stopWhen:
 
 故事开始时主角正面对的抉择。这个抉择必须从世界设定中自然生长出来——是特异点所产生的余波、历史锚点的强大引力、势力恩怨的交叉、或规则边界的碰撞，而非凭空出现的"剧情需要"。
 一个有趣的开局冲突必须**根植于世界**：冲突是势力渊源、历史锚点、规则边界的自然产物。
+
+# 初始化工具规则
+
+`initializeStoryState` 用于初始化故事运行状态，必须包含：
+
+- `profile`：主角身份、初始处境、当前目标的简短摘要。
+- `dimensions`：正好五个主角正向维度，数值 0-100，数值越高代表主角越有利。维度名称必须适配故事类型，不要使用“伤势”“污染”“债务”这类高分含义不清的负向维度。
+- `worldSnapshot`：固定 Markdown 世界当前快照，必须从世界视角概括当前重要事项，不写暗线，不面向 Inspector 展示。
+
+`worldSnapshot` 模板：
+
+```md
+## 世界当前时点
+
+## 关键环境状态
+
+## 关键 NPC 与势力
+
+## 关键人物状态
+
+## 已发生的重要事件
+```
+
+`initializeTaskState` 用于初始化任务系统，必须包含固定 Markdown 任务板：
+
+```md
+## 进行中
+
+暂无
+
+## 可领取
+
+暂无
+
+## 已完成
+
+暂无
+
+## 已失败
+
+暂无
+```
+
+只把主角后续可以主动推进、有完成条件、风险、奖励、代价、期限或明确叙事价值的可行动目标写入任务板。普通事实、氛围变化、纯背景线索不要写入任务。

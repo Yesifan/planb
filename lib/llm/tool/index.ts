@@ -1,6 +1,12 @@
 import { tool, ToolSet } from "ai";
 import z from "zod";
 
+import {
+  initializeStoryState,
+  initializeTaskState,
+  updateStoryState,
+  updateTaskState,
+} from "./state";
 import { createStory, saveSystemSetting } from "./story";
 
 export const dice = tool({
@@ -63,7 +69,11 @@ const Tools = {
   createQuestion,
   dice,
   judgeInput,
+  initializeStoryState,
+  initializeTaskState,
   saveSystemSetting,
+  updateStoryState,
+  updateTaskState,
 } satisfies ToolSet;
 
 export default Tools;
@@ -75,7 +85,11 @@ export const ToolKeys = [
   "createQuestion",
   "dice",
   "judgeInput",
+  "initializeStoryState",
+  "initializeTaskState",
   "saveSystemSetting",
+  "updateStoryState",
+  "updateTaskState",
 ] as const;
 
 export const AllToolKeys = [...ToolKeys, ...AgentTookKeys] as const;

@@ -11,6 +11,7 @@ import { estimateModelMessageTokens } from "@/lib/llm/token";
 import {
   toHistoryModelMessage,
   toModelMessage,
+  toRuntimeStateModelMessage,
   toStoryModelMessage,
 } from "@/lib/llm/utils";
 import logger from "@/lib/logger";
@@ -84,11 +85,14 @@ export async function getChatTokens(
     const storyData = await db.query.story.findFirst({
       where: { chatId },
     });
+    const protagonistData = await db.query.protagonistState.findFirst({
+      where: { chatId },
+    });
     const histories = (
       await db.query.history.findMany({
         where: { chatId },
         orderBy: { createdAt: "desc" },
-        limit: 100,
+        limit: 20,
       })
     ).reverse();
     const latestMessage = await db.query.message.findFirst({
@@ -106,6 +110,10 @@ export async function getChatTokens(
       outputTokens: Number(row?.outputTokens ?? 0),
       contextTokens: estimateModelMessageTokens([
         toStoryModelMessage(storyData),
+        toRuntimeStateModelMessage({
+          protagonistState: protagonistData,
+          story: storyData,
+        }),
         toHistoryModelMessage(histories),
         ...toModelMessage(latestMessage),
       ]),
@@ -121,6 +129,43 @@ export async function getChatTokens(
       "getChatTokens",
     );
   }
+}
+
+export async function getProtagonistState(chatId: string) {
+  const session = await getSessionWithRedirect();
+  const chat = await db.query.chat.findFirst({
+    where: {
+      id: chatId,
+      userId: session.user.id,
+    },
+  });
+  if (!chat) {
+    return notFound();
+  }
+  return await db.query.protagonistState.findFirst({
+    where: { chatId },
+  });
+}
+
+export async function getStoryRuntimeState(chatId: string) {
+  const session = await getSessionWithRedirect();
+  const chat = await db.query.chat.findFirst({
+    where: {
+      id: chatId,
+      userId: session.user.id,
+    },
+  });
+  if (!chat) {
+    return notFound();
+  }
+  return await db.query.story.findFirst({
+    columns: {
+      worldSnapshot: true,
+      taskState: true,
+      updatedAt: true,
+    },
+    where: { chatId },
+  });
 }
 
 export async function getChatMessages(chatId: string, limit = 100, offset = 0) {

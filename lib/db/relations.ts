@@ -26,6 +26,7 @@ export const relations = defineRelationsPart(schema, (r) => ({
       to: r.user.id,
     }),
     story: r.one.story(),
+    protagonistState: r.one.protagonistState(),
     messages: r.many.message(),
     history: r.many.history(),
   },
@@ -45,6 +46,12 @@ export const relations = defineRelationsPart(schema, (r) => ({
   story: {
     chat: r.one.chat({
       from: r.story.chatId,
+      to: r.chat.id,
+    }),
+  },
+  protagonistState: {
+    chat: r.one.chat({
+      from: r.protagonistState.chatId,
       to: r.chat.id,
     }),
   },

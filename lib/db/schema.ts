@@ -59,6 +59,27 @@ export const story = sqliteTable("story", {
   describe: text("describe"),
   worldview: text("worldview"),
   system: text("system"),
+  worldSnapshot: text("world_snapshot"),
+  taskState: text("task_state"),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+    .$onUpdate(() => new Date())
+    .notNull(),
+});
+
+export type ProtagonistDimension = {
+  name: string;
+  value: number;
+  summary: string;
+};
+
+export const protagonistState = sqliteTable("protagonist_state", {
+  id: text("id").primaryKey(),
+  chatId: text("chat_id").notNull(),
+  profile: text("profile").notNull(),
+  dimensions: text("dimensions", { mode: "json" })
+    .$type<ProtagonistDimension[]>()
+    .notNull(),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp_ms" })
     .$onUpdate(() => new Date())
@@ -78,6 +99,7 @@ export type NewChat = typeof chat.$inferInsert;
 export type Message = typeof message.$inferSelect;
 export type NewMessage = typeof message.$inferInsert;
 export type Story = typeof story.$inferSelect;
+export type ProtagonistState = typeof protagonistState.$inferSelect;
 export type History = typeof history.$inferSelect;
 
 export type ToolCall = typeof toolCall.$inferSelect;

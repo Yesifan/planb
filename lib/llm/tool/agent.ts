@@ -5,7 +5,11 @@ import { db } from "@/lib/db";
 
 import { ToolContext } from "../type";
 import { addUsage } from "../usage";
-import { toHistoryModelMessage, toStoryModelMessage } from "../utils";
+import {
+  toHistoryModelMessage,
+  toRuntimeStateModelMessage,
+  toStoryModelMessage,
+} from "../utils";
 
 export const ActivateSystemSchema = z.object({
   trigger: z.string().describe("触发原因：当前剧情中什么情况需要金手指介入"),
@@ -21,12 +25,20 @@ export const activateSystem = tool({
     const storyData = await db.query.story.findFirst({
       where: { chatId },
     });
+    const protagonistData = await db.query.protagonistState.findFirst({
+      where: { chatId },
+    });
     if (storyData?.system) {
       const { system: systemAgent } = await import("../index");
       const storyMessage = toStoryModelMessage(storyData);
+      const runtimeStateMessage = toRuntimeStateModelMessage({
+        protagonistState: protagonistData,
+        story: storyData,
+      });
       const result = await systemAgent.generate({
         prompt: [
           storyMessage,
+          runtimeStateMessage,
           {
             role: "user",
             content: `## 当前剧情状态\n${input.currentSituation}\n\n## 触发原因\n${input.trigger}\n\n请根据以上情境进行介入。`,
@@ -88,18 +100,27 @@ export const reviewBranch = tool({
     const storyData = await db.query.story.findFirst({
       where: { chatId },
     });
+    const protagonistData = await db.query.protagonistState.findFirst({
+      where: { chatId },
+    });
     const histories = (
       await db.query.history.findMany({
         where: { chatId },
         orderBy: { createdAt: "desc" },
+        limit: 20,
       })
     ).reverse();
     const storyMessage = toStoryModelMessage(storyData);
+    const runtimeStateMessage = toRuntimeStateModelMessage({
+      protagonistState: protagonistData,
+      story: storyData,
+    });
     const historyMessage = toHistoryModelMessage(histories);
     const { arbiter } = await import("../index");
     const result = await arbiter.generate({
       prompt: [
         storyMessage,
+        runtimeStateMessage,
         historyMessage,
         {
           role: "user",

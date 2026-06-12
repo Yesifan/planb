@@ -4,6 +4,7 @@ import {
   History,
   MessageWithToolCall,
   NewMessage,
+  ProtagonistState,
   Story,
 } from "@/lib/db/schema";
 
@@ -116,6 +117,43 @@ export function toHistoryModelMessage(
       "# 故事历史",
       history.map((h) => h.content).join("\n\n---\n\n"),
     ].join("\n"),
+  };
+}
+
+export function toRuntimeStateModelMessage({
+  protagonistState,
+  story,
+}: {
+  protagonistState?: ProtagonistState;
+  story?: Story;
+}): ModelMessage | undefined {
+  const sections = [
+    protagonistState
+      ? [
+          "## 主角状态",
+          `### 主角摘要\n${protagonistState.profile}`,
+          "### 主角五维",
+          protagonistState.dimensions
+            .map(
+              (dimension) =>
+                `- ${dimension.name}: ${dimension.value}/100，${dimension.summary}`,
+            )
+            .join("\n"),
+        ].join("\n")
+      : undefined,
+    story?.worldSnapshot
+      ? ["## 世界当前快照", story.worldSnapshot].join("\n")
+      : undefined,
+    story?.taskState ? ["## 任务系统", story.taskState].join("\n") : undefined,
+  ].filter((section) => section !== undefined);
+
+  if (sections.length === 0) {
+    return undefined;
+  }
+
+  return {
+    role: "user",
+    content: ["# 运行状态", ...sections].join("\n\n"),
   };
 }
 
