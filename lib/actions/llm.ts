@@ -34,11 +34,7 @@ import {
 } from "@/lib/llm/errors";
 import { createLLMLogging } from "@/lib/llm/logging";
 import { estimateModelMessageTokens } from "@/lib/llm/token";
-import {
-  addUsage,
-  createTokenAccumulator,
-  UsageInput,
-} from "@/lib/llm/usage";
+import { addUsage, createTokenAccumulator, UsageInput } from "@/lib/llm/usage";
 import {
   toHistoryModelMessage,
   toModelMessage,
@@ -81,7 +77,6 @@ const AGENT_STATUS_TEXT = {
 
 const ORACLE_TOOL_STATUS: Record<string, string> = {
   dice: "正在判定骰子...",
-  reviewBranch: "正在审查分支...",
   activateSystem: "正在激活系统...",
 };
 
@@ -138,7 +133,7 @@ function startRuntimeStateUpdates({
 }: {
   chatId: string;
   experimental_context: ToolContext;
-  oracleText?: string;
+  oracleText: string;
 }) {
   const log = createLLMLogging({
     traceId: experimental_context.traceId,
@@ -182,27 +177,25 @@ function startRuntimeStateUpdates({
     return run("state", operationMode, async () => {
       const stateInstruction =
         operationMode === "initialize"
-          ? "当前没有旧的主角五维或世界快照。请根据故事设定初始化主角五维和世界当前快照，必须调用 initializeStoryState。"
-          : oracleText
-            ? `当前已存在旧的主角五维和世界快照。请根据以下 Oracle 大纲更新主角五维数值和世界当前快照，必须调用 updateStoryState。updateStoryState 的 input 只能包含 profile、dimensionValues、worldSnapshot；dimensionValues 是按已有五维顺序排列的五个数值，不要提交维度名称或描述。\n\n# Oracle 大纲\n${oracleText}`
-            : "当前已存在旧的主角五维和世界快照。请根据最新故事设定和已有运行状态更新主角五维数值和世界当前快照，必须调用 updateStoryState。updateStoryState 的 input 只能包含 profile、dimensionValues、worldSnapshot；dimensionValues 是按已有五维顺序排列的五个数值，不要提交维度名称或描述。";
-    const result = await statekeeper.generate({
-      prompt: buildRuntimePrompt({
-        storyData,
-        protagonistData,
+          ? "当前没有旧的主角五维或世界快照。请根据故事设定初始化主角五维和世界当前快照，必须调用 initializeStoryState。\n\n# 故事大纲\n${oracleText}"
+          : `当前已存在旧的主角五维和世界快照。请根据以下 Oracle 大纲更新主角五维数值和世界当前快照，必须调用 updateStoryState。updateStoryState 的 input 只能包含 profile、dimensionValues、worldSnapshot；dimensionValues 是按已有五维顺序排列的五个数值，不要提交维度名称或描述。\n\n# 故事大纲\n${oracleText}`;
+      const result = await statekeeper.generate({
+        prompt: buildRuntimePrompt({
+          storyData,
+          protagonistData,
           instruction: stateInstruction,
-      }),
-      experimental_context,
-    });
-    await runStateAgentJob({
-      agentName: "Statekeeper",
-      expectedToolName:
+        }),
+        experimental_context,
+      });
+      await runStateAgentJob({
+        agentName: "Statekeeper",
+        expectedToolName:
           operationMode === "initialize"
             ? "initializeStoryState"
             : "updateStoryState",
-      result,
-      tokenUsage: experimental_context.tokenUsage,
-    });
+        result,
+        tokenUsage: experimental_context.tokenUsage,
+      });
     });
   })();
 
@@ -212,27 +205,26 @@ function startRuntimeStateUpdates({
     return run("task", operationMode, async () => {
       const taskInstruction =
         operationMode === "initialize"
-          ? "当前没有旧的任务状态。请根据故事设定初始化任务系统，允许暂无任务，必须调用 initializeTaskState。"
-          : oracleText
-            ? `当前已存在旧的任务状态。请根据以下 Oracle 大纲更新任务列表，必须调用 updateTaskState。\n\n# Oracle 大纲\n${oracleText}`
-            : "当前已存在旧的任务状态。请根据最新故事设定和已有任务状态更新任务列表，必须调用 updateTaskState。";
-    const result = await taskmaster.generate({
-      prompt: buildRuntimePrompt({
-        storyData,
-        protagonistData,
+          ? "当前没有旧的任务状态。请根据故事设定初始化任务系统，允许暂无任务，必须调用 initializeTaskState。\n\n# 故事大纲\n${oracleText}"
+          : `当前已存在旧的任务状态。请根据以下 Oracle 大纲更新任务列表，必须调用 updateTaskState。\n\n# 故事大纲\n${oracleText}`;
+
+      const result = await taskmaster.generate({
+        prompt: buildRuntimePrompt({
+          storyData,
+          protagonistData,
           instruction: taskInstruction,
-      }),
-      experimental_context,
-    });
-    await runStateAgentJob({
-      agentName: "Taskmaster",
-      expectedToolName:
+        }),
+        experimental_context,
+      });
+      await runStateAgentJob({
+        agentName: "Taskmaster",
+        expectedToolName:
           operationMode === "initialize"
             ? "initializeTaskState"
             : "updateTaskState",
-      result,
-      tokenUsage: experimental_context.tokenUsage,
-    });
+        result,
+        tokenUsage: experimental_context.tokenUsage,
+      });
     });
   })();
 
@@ -354,7 +346,7 @@ async function continueCreateStory(
     prompt: [
       {
         role: "user",
-        content: "请根据设定的故事背景和特异点，生成设定并提问。",
+        content: "请根据设定的故事背景和特异点，向用户提问并生成故事相关设定。",
       },
       ...messages,
     ],
@@ -374,7 +366,7 @@ async function continueCreateStory(
     statusText: AGENT_STATUS_TEXT.Weaver,
   });
   log.info("agent.Weaver.start");
-  const result = await weaver.stream({
+  return await weaver.stream({
     prompt: [
       ...archivistResult.response.messages,
       {
@@ -394,24 +386,14 @@ async function continueCreateStory(
       stream.update({ type: "agent-status", agentId: null });
     },
   });
-  stream.update({
-    type: "agent-status",
-    agentId: "Statekeeper",
-    statusText: AGENT_STATUS_TEXT.Statekeeper,
-  });
-  startRuntimeStateUpdates({
-    chatId,
-    experimental_context,
-  });
-  return result;
 }
 
 /**
- * 主流程：Sentinel → Oracle(内部含 Arbiter 审查循环) → Weaver
+ * 主流程：Sentinel → Oracle → Weaver
  *
  * 1. Sentinel 审查用户输入 — 通过 judgeInput 工具给出 approve/reject 判定
- * 2. Oracle 根据审查后的输入生成分支剧情（内部通过 reviewBranch/dice/activateSystem 工具完成审查和调度）
- * 3. Weaver 将审核通过的历史年表扩写为小说正文
+ * 2. Oracle 根据审查后的输入生成分支剧情，并在最终输出前完成自我审查（内部通过 dice/activateSystem 工具完成判定和调度）
+ * 3. Weaver 将历史年表扩写为小说正文
  */
 async function continueStory(
   chatId: string,
@@ -537,7 +519,7 @@ async function continueStory(
   });
 
   const prompt = [
-    messages[0],
+    ...messages.slice(0, 2),
     {
       role: "user",
       content: `根据以下剧情大纲完成小说内容：\n\n${oracleText}`,
@@ -599,7 +581,7 @@ export async function continueConversation(chatId: string, prompt: string) {
 
   log.info({ chatId, prompt }, "action.input");
 
-  const history = await getChatHistory(chatId, 20);
+  const history = await getChatHistory(chatId, 5);
   const storyData = await db.query.story.findFirst({
     where: { chatId: chatId },
   });
@@ -631,8 +613,8 @@ export async function continueConversation(chatId: string, prompt: string) {
 
   const storyMessage = toStoryModelMessage(storyData);
   const runtimeMessage = toRuntimeStateModelMessage({
-    protagonistState: protagonistData,
     story: storyData,
+    protagonistState: protagonistData,
   });
   const historyMessage = toHistoryModelMessage(history);
   const latestInputMessage = toModelMessage(latestModelMessages);

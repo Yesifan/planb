@@ -20,7 +20,10 @@ export const dice = tool({
       ),
   }),
   async execute() {
-    return Math.floor(Math.random() * 16) + 1;
+    const roll = () => Math.floor(Math.random() * 16) + 1;
+    const max = Math.max(roll(), roll());
+
+    return { max };
   },
 });
 

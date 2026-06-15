@@ -303,7 +303,7 @@ describe("continueConversation", () => {
   });
 
   describe("continueStory", () => {
-    test("should run sentinel → oracle (with reviewBranch) → weaver and update runtime state when previous state exists", async () => {
+    test("should run sentinel → oracle → weaver and update runtime state when previous state exists", async () => {
       const now = new Date();
       const chatId = "cc-complete-story";
 
@@ -365,17 +365,6 @@ describe("continueConversation", () => {
           usage: { inputTokens: 10, outputTokens: 20 },
         },
         {
-          kind: "tool-call",
-          toolName: "reviewBranch",
-          input: { content: "草拟分支：诸葛亮亲率大军北伐..." },
-          usage: { inputTokens: 40, outputTokens: 50 },
-        },
-        {
-          kind: "text",
-          text: "审查通过：剧情合理",
-          usage: { inputTokens: 20, outputTokens: 30 },
-        },
-        {
           kind: "text",
           text: "剧情大纲：长安之战...",
           usage: { inputTokens: 60, outputTokens: 80 },
@@ -424,8 +413,8 @@ describe("continueConversation", () => {
       });
       const latest = assistantMessages[0];
       expect(latest?.text).toContain("长安烽火");
-      expect(latest?.inputTokens).toBe(196);
-      expect(latest?.outputTokens).toBe(258);
+      expect(latest?.inputTokens).toBe(136);
+      expect(latest?.outputTokens).toBe(178);
 
       const storyRow = await db.query.story.findFirst({
         where: { chatId },

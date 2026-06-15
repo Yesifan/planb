@@ -46,5 +46,7 @@ planb.sqlite*
 next-env.d.ts
 
 # ai
+.codex
+.opencode
 .sisyphus
 .local-ignore

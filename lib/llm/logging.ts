@@ -13,6 +13,8 @@ type FinishLogSource = {
   text?: string;
   totalUsage?: LanguageModelUsage;
   usage?: LanguageModelUsage;
+  toolCalls: unknown;
+  toolResults: unknown;
 };
 
 export function getAgentLogDetail(): AgentLogDetail {
@@ -70,8 +72,10 @@ export function buildAgentFinishLogPayload(
 
   return {
     ...summary,
-    reasoning: event.reasoning,
     text: event.text,
+    reasoning: event.reasoning,
+    toolCalls: event.toolCalls,
+    toolResults: event.toolResults,
   };
 }
 
