@@ -25,8 +25,18 @@ export type MockToolCallResponse = {
   text?: string;
   usage: MockUsage;
 };
+export type MockInvalidToolCallResponse = {
+  kind: "invalid-tool-call";
+  toolName: string;
+  inputJson: string;
+  text?: string;
+  usage: MockUsage;
+};
 
-export type MockResponse = MockTextResponse | MockToolCallResponse;
+export type MockResponse =
+  | MockTextResponse
+  | MockToolCallResponse
+  | MockInvalidToolCallResponse;
 
 let mockQueue: MockResponse[] = [];
 let toolCallCounter = 0;
@@ -87,11 +97,10 @@ function textStreamChunks(
 
 function toolCallStreamChunks(
   toolName: string,
-  input: object,
+  inputJson: string,
   usage: MockUsage,
   text?: string,
 ): LanguageModelV3StreamPart[] {
-  const inputJson = JSON.stringify(input);
   const toolCallId = `${toolName}_MOCK_${toolCallCounter++}`;
   const chunks: LanguageModelV3StreamPart[] = text
     ? [
@@ -121,14 +130,21 @@ function textGenerateContent(text: string): LanguageModelV3Content {
 
 function toolCallGenerateContent(
   toolName: string,
-  input: object,
+  inputJson: string,
 ): LanguageModelV3Content {
   return {
     type: "tool-call",
     toolCallId: `${toolName}_MOCK_${toolCallCounter++}`,
     toolName,
-    input: JSON.stringify(input),
+    input: inputJson,
   };
+}
+
+function toolCallInputJson(response: MockToolCallResponse | MockInvalidToolCallResponse) {
+  if (response.kind === "invalid-tool-call") {
+    return response.inputJson;
+  }
+  return JSON.stringify(response.input);
 }
 
 const defaultUsage = toV3Usage({ inputTokens: 1, outputTokens: 1 });
@@ -150,12 +166,17 @@ export function createMockProvider<CHAT_MODEL_IDS extends LanguageModel>() {
       const content =
         resp.kind === "text"
           ? [textGenerateContent(resp.text)]
-          : [toolCallGenerateContent(resp.toolName, resp.input)];
+          : [
+              toolCallGenerateContent(
+                resp.toolName,
+                toolCallInputJson(resp),
+              ),
+            ];
 
       return {
         content,
         finishReason:
-          resp.kind === "tool-call"
+          resp.kind !== "text"
             ? { unified: "tool-calls", raw: undefined }
             : { unified: "stop", raw: undefined },
         usage: toV3Usage(resp.usage),
@@ -180,7 +201,7 @@ export function createMockProvider<CHAT_MODEL_IDS extends LanguageModel>() {
           ? textStreamChunks(resp.text, resp.usage)
           : toolCallStreamChunks(
               resp.toolName,
-              resp.input,
+              toolCallInputJson(resp),
               resp.usage,
               resp.text,
             );

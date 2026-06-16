@@ -2,6 +2,10 @@
 
 - [ ] 切换chat时 streamingstatus 未重置
 - [x] 没有retry
+  - 使用 AI SDK `experimental_repairToolCall` 就地修复无效 JSON 工具参数（`AI_InvalidToolInputError` / `AI_JSONParseError`），无需重新运行整个 agent。
+  - 使用基于完整性的 `stopWhen` 条件（`isArchivistInitComplete`）让 Archivist 持续运行直到 `createStory`、`initializeStoryState`、`initializeTaskState` 三个必需工具全部完成。
+  - 在 `createAgent` 工厂中默认注入 `experimental_repairToolCall`，所有 agent 自动获得 JSON 修复能力。
+  - 完成后验证：agent 结束后检查必需工具是否全部完成，缺失则抛出包含工具名的明确错误。
 - [ ] 没有 copy
 - [x] 主角五维系统
   - 新增 `protagonist_state` 表保存主角摘要和 AI 按故事类型生成的五维 JSON，每维使用 0-100 且高分恒好的数值语义。

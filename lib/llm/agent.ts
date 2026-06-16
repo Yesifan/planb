@@ -13,6 +13,7 @@ import { generateText, hasToolCall, stepCountIs, streamText } from "ai";
 
 import logger from "../logger";
 import { planbSettings, primaryModel, secondaryModel } from "./provider";
+import { createRepairToolCall } from "./repair-tool-call";
 import BaseTools from "./tool";
 import { agentTools } from "./tool/agent";
 import {
@@ -271,14 +272,19 @@ export function createAgent<TOOLS extends ToolSet>(
         ? secondaryModel
         : model;
 
+  const resolvedModel = provider(modelId ?? primaryModel);
+  const { experimental_repairToolCall: customRepair, ...restOptions } = options;
+  const repairToolCall = customRepair ?? createRepairToolCall(resolvedModel);
+
   return new PlanbAgent({
-    model: provider(modelId ?? primaryModel),
+    model: resolvedModel,
     instructions: content,
     tools: toolset as TOOLS,
     toolChoice: toolChoiceConfig,
     stopWhen: stopWhenFun,
     providerOptions: createReasoningProviderOptions(modelId, reasoning),
+    experimental_repairToolCall: repairToolCall,
     ...config,
-    ...options,
+    ...restOptions,
   });
 }

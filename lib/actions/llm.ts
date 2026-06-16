@@ -1,7 +1,14 @@
 "use server";
 
 import { createStreamableValue } from "@ai-sdk/rsc";
-import type { ModelMessage, OnFinishEvent, ToolSet, UIMessageChunk } from "ai";
+import {
+  hasToolCall,
+  type ModelMessage,
+  type OnFinishEvent,
+  stepCountIs,
+  type ToolSet,
+  type UIMessageChunk,
+} from "ai";
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 
@@ -24,6 +31,10 @@ import {
   taskmaster,
   weaver,
 } from "@/lib/llm";
+import {
+  isArchivistInitComplete,
+  missingInitToolNames,
+} from "@/lib/llm/archivist-init";
 import { saveMessageWithTool } from "@/lib/llm/db";
 import {
   AccessDeniedError,
@@ -192,33 +203,40 @@ async function continueCreateStory(
     action: "continueCreateStory",
     chatId,
   });
+
   stream.update({
     type: "agent-status",
     agentId: "Archivist",
     statusText: AGENT_STATUS_TEXT.Archivist,
   });
   log.info("agent.Archivist.start");
+
   const archivistResult = await archivist.stream({
     prompt: [
       {
-        role: "user",
+        role: "user" as const,
         content:
           "请根据设定的故事背景、特异点以及用户回答，必要时继续向用户提问；信息完整后生成故事设定、角色设定，并初始化主角状态和任务状态。",
       },
       ...messages,
     ],
     experimental_context,
+    stopWhen: [
+      ({ steps }) => isArchivistInitComplete(steps),
+      hasToolCall("createQuestion"),
+      stepCountIs(20),
+    ],
     onStepFinish(step) {
       log.step(step, "agent.Archivist.step.finish");
     },
     async onFinish(event) {
       log.finish(event, "agent.Archivist.finish");
-      if (hasCreateQuestionToolCall(event.toolCalls)) {
+      const allEventToolCalls = event.steps.flatMap((s) => s.toolCalls);
+      if (hasCreateQuestionToolCall(allEventToolCalls)) {
         await Promise.all(experimental_context.pendingStateUpdates ?? []);
         await onFinish(event as unknown as OnFinishEvent<ToolSet>);
         return;
       }
-
       if (experimental_context.tokenUsage) {
         addUsage(experimental_context.tokenUsage, event.totalUsage);
       }
@@ -229,18 +247,36 @@ async function continueCreateStory(
     },
   });
 
-  // The stream is consumed by awaiting toolCalls/response before the caller
-  // converts it to UI chunks. AI SDK buffers stream results for this reuse.
-  if (hasCreateQuestionToolCall(await archivistResult.toolCalls)) {
+  const steps = await archivistResult.steps;
+  const allStepToolCalls = steps.flatMap((s) => s.toolCalls);
+
+  // createQuestion → short-circuit (existing behavior)
+  if (hasCreateQuestionToolCall(allStepToolCalls)) {
     return archivistResult;
   }
 
+  // Post-completion validation: verify all required init tools were called
+  const completedToolNames = new Set(
+    steps
+      .flatMap((s) => s.toolResults)
+      .filter((r) => r.dynamic !== true)
+      .map((r) => r.toolName),
+  );
+  const missing = missingInitToolNames(completedToolNames);
+  if (missing.length > 0) {
+    throw new Error(
+      `Archivist initialization failed: missing required tools: ${missing.join(", ")}`,
+    );
+  }
+
+  // All required tools completed → proceed to Weaver
   stream.update({
     type: "agent-status",
     agentId: "Weaver",
     statusText: AGENT_STATUS_TEXT.Weaver,
   });
   log.info("agent.Weaver.start");
+
   return await weaver.stream({
     prompt: [
       ...(await archivistResult.response).messages,

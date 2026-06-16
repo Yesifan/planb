@@ -16,6 +16,70 @@ mock.module("@/lib/auth/server", () => ({
   }),
 }));
 
+async function setupIncompleteStory(chatId: string) {
+  const now = new Date();
+  await db.insert(chat).values({
+    id: chatId,
+    userId: "test-user",
+    title: "Test",
+    createdAt: now,
+    updatedAt: now,
+  });
+  await db.insert(story).values({
+    id: `${chatId}-story`,
+    chatId,
+    source: "三国",
+    singularity: "特异点",
+    createdAt: now,
+    updatedAt: now,
+  });
+  await db.insert(message).values({
+    id: `${chatId}-assistant-question`,
+    chatId,
+    role: "assistant",
+    text: "请提供更多设定",
+    createdAt: now,
+  });
+}
+
+const createStoryToolResponse = {
+  kind: "tool-call" as const,
+  toolName: "createStory",
+  input: {
+    title: "五丈原新局",
+    type: "历史改编",
+    describe: "诸葛亮病势转稳，蜀军仍在五丈原维持战线。",
+    worldview: "架空三国，信息传递依赖驿道与军报。",
+  },
+  usage: { inputTokens: 3, outputTokens: 4 },
+};
+
+const initializeStoryStateToolResponse = {
+  kind: "tool-call" as const,
+  toolName: "initializeStoryState",
+  input: {
+    profile: "主角是诸葛亮，刚从病危中稳住局面。",
+    dimensions: [
+      { name: "身体", value: 55, summary: "病势初稳" },
+      { name: "心智", value: 88, summary: "判断清晰" },
+      { name: "威望", value: 82, summary: "军中仍信服" },
+      { name: "资源", value: 46, summary: "粮草压力明显" },
+      { name: "时机", value: 60, summary: "魏军尚未确认虚实" },
+    ],
+    worldSnapshot: "## 世界当前时点\n五丈原对峙仍在持续。",
+  },
+  usage: { inputTokens: 5, outputTokens: 6 },
+};
+
+const initializeTaskStateToolResponse = {
+  kind: "tool-call" as const,
+  toolName: "initializeTaskState",
+  input: {
+    taskState: "## 进行中\n- 稳住五丈原军心：避免魏军识破病情。",
+  },
+  usage: { inputTokens: 7, outputTokens: 8 },
+};
+
 describe("createStory", () => {
   test("should persist chat/story and emit createQuestion tool call", async () => {
     setMockResponses([
@@ -107,11 +171,9 @@ describe("continueConversation", () => {
       });
 
       setMockResponses([
-        {
-          kind: "text",
-          text: "设定补充完成",
-          usage: { inputTokens: 30, outputTokens: 40 },
-        },
+        initializeStoryStateToolResponse,
+        initializeTaskStateToolResponse,
+        createStoryToolResponse,
         {
           kind: "text",
           text: "第一章：风云再起...",
@@ -174,11 +236,9 @@ describe("continueConversation", () => {
       });
 
       setMockResponses([
-        {
-          kind: "text",
-          text: "设定补充完成",
-          usage: { inputTokens: 30, outputTokens: 40 },
-        },
+        initializeStoryStateToolResponse,
+        initializeTaskStateToolResponse,
+        createStoryToolResponse,
         {
           kind: "text",
           text: "第一章：风云再起...",
@@ -202,8 +262,8 @@ describe("continueConversation", () => {
         orderBy: { createdAt: "desc" },
       });
       expect(assistantMessages[0]?.text).toContain("风云再起");
-      expect(assistantMessages[0]?.inputTokens).toBe(80);
-      expect(assistantMessages[0]?.outputTokens).toBe(100);
+      expect(assistantMessages[0]?.inputTokens).toBe(65);
+      expect(assistantMessages[0]?.outputTokens).toBe(78);
 
       resetMock();
     });
@@ -302,6 +362,70 @@ describe("continueConversation", () => {
       expect(assistantMessages[0]?.text).toContain("五丈原风云");
       expect(assistantMessages[0]?.inputTokens).toBe(96);
       expect(assistantMessages[0]?.outputTokens).toBe(118);
+
+      resetMock();
+    });
+
+    test("should continue running archivist until all required initialization tools are completed", async () => {
+      const chatId = "cc-completeness-stopwhen";
+      await setupIncompleteStory(chatId);
+
+      // Agent calls some tools in step 1, remaining tools in step 2
+      setMockResponses([
+        initializeTaskStateToolResponse,
+        createStoryToolResponse,
+        initializeStoryStateToolResponse,
+        {
+          kind: "text",
+          text: "第一章：五丈原风云再起...",
+          usage: { inputTokens: 15, outputTokens: 16 },
+        },
+      ]);
+
+      const { continueConversation } = await import("@/lib/actions/llm");
+      const result = await continueConversation(chatId, "开始吧");
+
+      for await (const _ of readStreamableValue(result.content)) void _;
+      await new Promise((r) => setTimeout(r, 50));
+
+      const storyRow = await db.query.story.findFirst({ where: { chatId } });
+      const assistantMessages = await db.query.message.findMany({
+        where: { chatId, role: "assistant" },
+        orderBy: { createdAt: "desc" },
+      });
+
+      expect(storyRow?.worldSnapshot).toContain("五丈原对峙");
+      expect(assistantMessages[0]?.text).toContain("五丈原风云");
+
+      resetMock();
+    });
+
+    test("should fail with missing tool names when archivist reaches max steps without completing initialization", async () => {
+      const chatId = "cc-missing-tools-max-steps";
+      await setupIncompleteStory(chatId);
+
+      // Agent never calls any required tools, just returns text
+      setMockResponses([
+        {
+          kind: "text",
+          text: "没有调用初始化工具。",
+          usage: { inputTokens: 11, outputTokens: 12 },
+        },
+      ]);
+
+      const { continueConversation } = await import("@/lib/actions/llm");
+      const result = await continueConversation(chatId, "开始吧");
+
+      let caught: unknown;
+      try {
+        for await (const _ of readStreamableValue(result.content)) void _;
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(String(caught)).toContain("createStory");
+      expect(String(caught)).toContain("initializeStoryState");
+      expect(String(caught)).toContain("initializeTaskState");
 
       resetMock();
     });
@@ -457,11 +581,9 @@ describe("continueConversation", () => {
       ]);
 
       setMockResponses([
-        {
-          kind: "text",
-          text: "设定补充完成",
-          usage: { inputTokens: 30, outputTokens: 40 },
-        },
+        initializeStoryStateToolResponse,
+        initializeTaskStateToolResponse,
+        createStoryToolResponse,
         {
           kind: "text",
           text: "第一章：风云再起...",
