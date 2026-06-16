@@ -1,6 +1,8 @@
 ---
 description: 守门人，审查用户输入的合理性，对每一次输入给出 approve 或 reject 的明确判定。
 model: secondary
+reasoning:
+  enabled: false
 tools:
   - judgeInput
 # toolChoice: required

@@ -13,17 +13,18 @@ export const dice = tool({
   description:
     "扔骰子。1个16面骰子取最大点数，返回1-16的结果。调用时必须在 reason 中写清：检定目标、主角具体行动、为什么有不确定性、失败后果、预估难度/DC、影响判定的准备/资源/环境。",
   inputSchema: z.object({
+    title: z.string().describe("本次检定的标题"),
     reason: z
       .string()
       .describe(
         "本次检定的完整上下文。必须包含：目标=主角想改变什么；行动=主角具体做法；风险=为何可能失败及失败后果；难度=参考DC或难度等级；修正因素=主角能力、准备、工具、环境、敌方警觉等。示例：'目标：无声进入档案室并取得名单；行动：夜间潜入并撬锁；风险：巡逻密集，失败会触发警戒；难度：DC 10 困难；修正因素：有平面图但没有钥匙。'",
       ),
   }),
-  async execute() {
+  async execute({ title }) {
     const roll = () => Math.floor(Math.random() * 16) + 1;
     const max = Math.max(roll(), roll());
 
-    return { max };
+    return `${title} dice result: ${max}`;
   },
 });
 

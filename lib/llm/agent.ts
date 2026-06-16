@@ -12,11 +12,16 @@ import {
 import { generateText, hasToolCall, stepCountIs, streamText } from "ai";
 
 import logger from "../logger";
-import { buildAgentFinishLogPayload } from "./logging";
-import { primaryModel, secondaryModel } from "./provider";
+import { planbSettings, primaryModel, secondaryModel } from "./provider";
 import BaseTools from "./tool";
 import { agentTools } from "./tool/agent";
-import { Agent, PlanbProvider, ToolContext } from "./type";
+import {
+  Agent,
+  AgentSchema,
+  PlanbProvider,
+  Provider,
+  ToolContext,
+} from "./type";
 
 export class PlanbAgent<
   CALL_OPTIONS = never,
@@ -124,9 +129,6 @@ export class PlanbAgent<
   }: Omit<Parameters<typeof generateText<TOOLS, OUTPUT>>[0], "model">): Promise<
     GenerateTextResult<TOOLS, OUTPUT>
   > {
-    const traceId = (experimental_context as ToolContext | undefined)?.traceId;
-    const log = logger.child({ traceId, agent: this.id });
-
     const prepareOptions = await this.prepareCall(options);
 
     const result = await generateText({
@@ -138,8 +140,6 @@ export class PlanbAgent<
         onStepFinish,
       ) as GenerateTextOnStepFinishCallback<TOOLS>,
     });
-
-    log.debug(buildAgentFinishLogPayload(result), "Agent Generate End");
 
     return result;
   }
@@ -183,6 +183,46 @@ type AgentSetting = {
   content: string;
   frontmatter: Agent;
 };
+
+export function createReasoningProviderOptions(
+  modelId: string | undefined,
+  reasoning: Agent["reasoning"],
+  providersConfig: Record<string, Provider> = planbSettings.provider,
+) {
+  if (!reasoning) {
+    return undefined;
+  }
+
+  const providerName = (modelId ?? primaryModel).split("/")[0];
+  const providerConfig = providersConfig[providerName];
+
+  if (providerConfig?.npm === "@ai-sdk/deepseek") {
+    if (reasoning.enabled === false) {
+      return { deepseek: { thinking: { type: "disabled" } } };
+    }
+
+    if (reasoning.enabled === true || reasoning.effort) {
+      return {
+        deepseek: {
+          thinking: { type: "enabled" },
+          ...(reasoning.effort ? { reasoningEffort: reasoning.effort } : {}),
+        },
+      };
+    }
+
+    return undefined;
+  } else if (providerConfig?.npm === "@ai-sdk/openai-compatible") {
+    if (reasoning.effort) {
+      return { [providerName]: { reasoningEffort: reasoning.effort } };
+    }
+    if (reasoning.enabled === false) {
+      return { [providerName]: { thinking: { type: "disabled" } } };
+    }
+  }
+
+  return undefined;
+}
+
 export function createAgent<TOOLS extends ToolSet>(
   agent: string,
   provider: PlanbProvider,
@@ -191,7 +231,8 @@ export function createAgent<TOOLS extends ToolSet>(
     Omit<ToolLoopAgentSettings<unknown, TOOLS, never>, "model">
   > = {},
 ) {
-  const { model, tools, toolChoice, stopWhen, ...config } = frontmatter;
+  const { model, tools, toolChoice, stopWhen, reasoning, ...config } =
+    AgentSchema.parse(frontmatter);
 
   const allTools = { ...BaseTools, ...agentTools };
 
@@ -236,6 +277,7 @@ export function createAgent<TOOLS extends ToolSet>(
     tools: toolset as TOOLS,
     toolChoice: toolChoiceConfig,
     stopWhen: stopWhenFun,
+    providerOptions: createReasoningProviderOptions(modelId, reasoning),
     ...config,
     ...options,
   });

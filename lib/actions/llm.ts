@@ -13,8 +13,6 @@ import {
   message,
   MessageWithToolCall,
   NewMessage,
-  ProtagonistState,
-  Story,
   story,
   toolCall,
 } from "@/lib/db/schema";
@@ -34,7 +32,7 @@ import {
 } from "@/lib/llm/errors";
 import { createLLMLogging } from "@/lib/llm/logging";
 import { estimateModelMessageTokens } from "@/lib/llm/token";
-import { addUsage, createTokenAccumulator, UsageInput } from "@/lib/llm/usage";
+import { addUsage, createTokenAccumulator } from "@/lib/llm/usage";
 import {
   toHistoryModelMessage,
   toModelMessage,
@@ -79,158 +77,6 @@ const ORACLE_TOOL_STATUS: Record<string, string> = {
   dice: "正在判定骰子...",
   activateSystem: "正在激活系统...",
 };
-
-async function runStateAgentJob({
-  agentName,
-  expectedToolName,
-  result,
-  tokenUsage,
-}: {
-  agentName: "Statekeeper" | "Taskmaster";
-  expectedToolName:
-    | "initializeStoryState"
-    | "updateStoryState"
-    | "initializeTaskState"
-    | "updateTaskState";
-  result: {
-    steps: Array<{ toolCalls: Array<{ toolName: string }> }>;
-    totalUsage: UsageInput;
-  };
-  tokenUsage?: ToolContext["tokenUsage"];
-}) {
-  const toolCalls = result.steps.flatMap((step) => step.toolCalls);
-  if (!toolCalls.some((toolCall) => toolCall.toolName === expectedToolName)) {
-    throw new Error(`${agentName} did not call ${expectedToolName}`);
-  }
-  if (tokenUsage) {
-    addUsage(tokenUsage, result.totalUsage);
-  }
-}
-
-function buildRuntimePrompt({
-  storyData,
-  protagonistData,
-  instruction,
-}: {
-  storyData?: Story;
-  protagonistData?: ProtagonistState;
-  instruction: string;
-}) {
-  return [
-    toStoryModelMessage(storyData),
-    toRuntimeStateModelMessage({
-      protagonistState: protagonistData,
-      story: storyData,
-    }),
-    { role: "user", content: instruction } as ModelMessage,
-  ].filter((message): message is ModelMessage => message !== undefined);
-}
-
-function startRuntimeStateUpdates({
-  chatId,
-  experimental_context,
-  oracleText,
-}: {
-  chatId: string;
-  experimental_context: ToolContext;
-  oracleText: string;
-}) {
-  const log = createLLMLogging({
-    traceId: experimental_context.traceId,
-    action: "runtimeState",
-    chatId,
-  });
-  const run = async (
-    job: "state" | "task",
-    operationMode: "initialize" | "update",
-    execute: () => Promise<void>,
-  ) => {
-    try {
-      await execute();
-    } catch (error) {
-      if (operationMode === "initialize") {
-        try {
-          await execute();
-          return;
-        } catch (retryError) {
-          log.error(
-            { error: retryError, firstError: error, job, operationMode },
-            "runtime_state.retry.failed",
-          );
-          return;
-        }
-      }
-      log.error({ error, job, operationMode }, "runtime_state.update.failed");
-    }
-  };
-  const loadState = async () => ({
-    storyData: await db.query.story.findFirst({ where: { chatId } }),
-    protagonistData: await db.query.protagonistState.findFirst({
-      where: { chatId },
-    }),
-  });
-
-  const stateJob = (async () => {
-    const { storyData, protagonistData } = await loadState();
-    const operationMode =
-      protagonistData && storyData?.worldSnapshot ? "update" : "initialize";
-    return run("state", operationMode, async () => {
-      const stateInstruction =
-        operationMode === "initialize"
-          ? "当前没有旧的主角五维或世界快照。请根据故事设定初始化主角五维和世界当前快照，必须调用 initializeStoryState。\n\n# 故事大纲\n${oracleText}"
-          : `当前已存在旧的主角五维和世界快照。请根据以下 Oracle 大纲更新主角五维数值和世界当前快照，必须调用 updateStoryState。updateStoryState 的 input 只能包含 profile、dimensionValues、worldSnapshot；dimensionValues 是按已有五维顺序排列的五个数值，不要提交维度名称或描述。\n\n# 故事大纲\n${oracleText}`;
-      const result = await statekeeper.generate({
-        prompt: buildRuntimePrompt({
-          storyData,
-          protagonistData,
-          instruction: stateInstruction,
-        }),
-        experimental_context,
-      });
-      await runStateAgentJob({
-        agentName: "Statekeeper",
-        expectedToolName:
-          operationMode === "initialize"
-            ? "initializeStoryState"
-            : "updateStoryState",
-        result,
-        tokenUsage: experimental_context.tokenUsage,
-      });
-    });
-  })();
-
-  const taskJob = (async () => {
-    const { storyData, protagonistData } = await loadState();
-    const operationMode = storyData?.taskState ? "update" : "initialize";
-    return run("task", operationMode, async () => {
-      const taskInstruction =
-        operationMode === "initialize"
-          ? "当前没有旧的任务状态。请根据故事设定初始化任务系统，允许暂无任务，必须调用 initializeTaskState。\n\n# 故事大纲\n${oracleText}"
-          : `当前已存在旧的任务状态。请根据以下 Oracle 大纲更新任务列表，必须调用 updateTaskState。\n\n# 故事大纲\n${oracleText}`;
-
-      const result = await taskmaster.generate({
-        prompt: buildRuntimePrompt({
-          storyData,
-          protagonistData,
-          instruction: taskInstruction,
-        }),
-        experimental_context,
-      });
-      await runStateAgentJob({
-        agentName: "Taskmaster",
-        expectedToolName:
-          operationMode === "initialize"
-            ? "initializeTaskState"
-            : "updateTaskState",
-        result,
-        tokenUsage: experimental_context.tokenUsage,
-      });
-    });
-  })();
-
-  experimental_context.pendingStateUpdates = [stateJob, taskJob];
-  return experimental_context.pendingStateUpdates;
-}
 
 export async function createStory(source: string, singularity: string) {
   const traceId = nanoid();
@@ -408,6 +254,9 @@ async function continueStory(
     chatId,
   });
 
+  const storyData = await db.query.story.findFirst({ where: { chatId } });
+  const isUpdate = storyData?.worldSnapshot ? true : false;
+
   // Step 1: Sentinel 审查用户输入
   stream.update({
     type: "agent-status",
@@ -518,18 +367,14 @@ async function continueStory(
     statusText: AGENT_STATUS_TEXT.Weaver,
   });
 
-  const prompt = [
-    ...messages.slice(0, 2),
-    {
-      role: "user",
-      content: `根据以下剧情大纲完成小说内容：\n\n${oracleText}`,
-    },
-  ] as ModelMessage[];
-
-  log.debug(prompt, "agent.Weaver.prompt");
-
   const result = await weaver.stream({
-    prompt: prompt,
+    prompt: [
+      ...messages.slice(0, 2),
+      {
+        role: "user",
+        content: `根据以下剧情大纲完成小说内容：\n\n${oracleText}`,
+      },
+    ],
     experimental_context,
     onAbort(event) {
       log.info(event, "agent.Weaver.abort");
@@ -552,16 +397,52 @@ async function continueStory(
       await onFinish(options as unknown as OnFinishEvent<ToolSet>);
     },
   });
+
   stream.update({
     type: "agent-status",
     agentId: "Statekeeper",
     statusText: AGENT_STATUS_TEXT.Statekeeper,
   });
-  startRuntimeStateUpdates({
-    chatId,
+
+  const stateResult = statekeeper.generate({
+    prompt: [
+      ...messages.slice(0, -1),
+      {
+        role: "user",
+        content: isUpdate
+          ? `当前已存在旧的主角五维和世界快照。请根据大纲更新主角五维数值和世界当前快照。\n\n：${oracleText}`
+          : `当前没有旧的主角五维或世界快照。请根据故事设定初始化主角五维和世界当前快照。\n\n：${oracleText}`,
+      },
+    ],
     experimental_context,
-    oracleText,
+    onStepFinish(step) {
+      log.step(step, "agent.Statekeeper.step.finish");
+    },
   });
+
+  const taskResult = taskmaster.generate({
+    prompt: [
+      ...messages.slice(0, -1),
+      {
+        role: "user",
+        content: isUpdate
+          ? `当前已存在旧的任务状态。请根据大纲更新任务列表。\n\n：${oracleText}`
+          : `当前没有旧的任务状态。请根据故事设定初始化任务系统，允许暂无任务。\n\n：${oracleText}`,
+      },
+    ],
+    experimental_context,
+    onStepFinish(step) {
+      log.step(step, "agent.taskmaster.step.finish");
+    },
+  });
+
+  Promise.all([stateResult, taskResult]).then(([stateResult, taskResult]) => {
+    if (experimental_context.tokenUsage) {
+      addUsage(experimental_context.tokenUsage, stateResult.totalUsage);
+      addUsage(experimental_context.tokenUsage, taskResult.totalUsage);
+    }
+  });
+
   return result;
 }
 
@@ -581,7 +462,7 @@ export async function continueConversation(chatId: string, prompt: string) {
 
   log.info({ chatId, prompt }, "action.input");
 
-  const history = await getChatHistory(chatId, 5);
+  const history = await getChatHistory(chatId, 25);
   const storyData = await db.query.story.findFirst({
     where: { chatId: chatId },
   });

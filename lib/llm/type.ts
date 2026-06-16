@@ -75,6 +75,14 @@ export const AgentSchema = z.object({
   description: z.string(),
   model: z.string().optional(),
   temperature: z.number().max(1).min(0).optional(),
+  reasoning: z
+    .object({
+      enabled: z.boolean().optional(),
+      effort: z.enum(["low", "medium", "high", "xhigh", "max"]).optional(),
+    })
+    .strict()
+    .refine(({ enabled, effort }) => enabled !== false || effort === undefined)
+    .optional(),
   tools: z.array(z.string()).optional(),
   stopWhen: z
     .object({
@@ -86,6 +94,7 @@ export const AgentSchema = z.object({
 });
 
 export type Agent = z.infer<typeof AgentSchema>;
+export type AgentReasoning = NonNullable<Agent["reasoning"]>;
 
 export interface MockProvider<
   IMAGE_MODEL_IDS extends string = string,
