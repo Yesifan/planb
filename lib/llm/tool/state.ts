@@ -45,7 +45,7 @@ const taskStateSchema = z.object({
   taskState: z
     .string()
     .min(1)
-    .describe("固定 Markdown 任务板，可包含进行中、可领取、已完成、已失败等分区"),
+    .describe("任务描述，使用 MardDown 格式分区分任务描述任务进度"),
 });
 
 export type StoryStateInput = z.infer<typeof storyStateSchema>;
@@ -151,8 +151,7 @@ export const updateStoryState = tool({
 });
 
 export const initializeTaskState = tool({
-  description:
-    "初始化任务系统 Markdown 文本。允许初始化为空任务板，但必须保持固定 Markdown 模板。",
+  description: "初始化任务系统文本。允许初始化为空任务板。",
   inputSchema: taskStateSchema,
   async execute(input, { experimental_context }) {
     const { db, chatId, traceId } = experimental_context as ToolContext;
@@ -165,8 +164,7 @@ export const initializeTaskState = tool({
 });
 
 export const updateTaskState = tool({
-  description:
-    "根据最新 Oracle 大纲维护任务 Markdown 文本：新建任务、更新进度、标记完成或失败。",
+  description: "根据最新大纲维护任务列表：新建任务、更新进度、标记完成或失败。",
   inputSchema: taskStateSchema,
   async execute(input, { experimental_context }) {
     const { db, chatId, traceId } = experimental_context as ToolContext;

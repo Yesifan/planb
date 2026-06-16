@@ -2,8 +2,13 @@ import { readStreamableValue } from "@ai-sdk/rsc";
 import { describe, expect, mock, test } from "bun:test";
 
 import { db } from "@/lib/db";
-import { chat, message, protagonistState, story } from "@/lib/db/schema";
-import { resetMock, setMockResponses } from "@/lib/llm/mock-provider";
+import { chat, message, protagonistState, story, toolCall } from "@/lib/db/schema";
+import {
+  getMockCallOptions,
+  remainingMockResponses,
+  resetMock,
+  setMockResponses,
+} from "@/lib/llm/mock-provider";
 
 mock.module("@/lib/auth/server", () => ({
   getSessionWithRedirect: async () => ({
@@ -297,6 +302,187 @@ describe("continueConversation", () => {
       expect(assistantMessages[0]?.text).toContain("五丈原风云");
       expect(assistantMessages[0]?.inputTokens).toBe(96);
       expect(assistantMessages[0]?.outputTokens).toBe(118);
+
+      resetMock();
+    });
+
+    test("should return follow-up question without running weaver when archivist asks during setup continuation", async () => {
+      const now = new Date();
+      const chatId = "cc-follow-up-question";
+
+      await db.insert(chat).values({
+        id: chatId,
+        userId: "test-user",
+        title: "Follow Up",
+        createdAt: now,
+        updatedAt: now,
+      });
+      await db.insert(story).values({
+        id: "cc-story-follow-up-question",
+        chatId,
+        source: "三国",
+        singularity: "特异点",
+        createdAt: now,
+        updatedAt: now,
+      });
+      await db.insert(message).values({
+        id: "cc-asst-follow-up-q1",
+        chatId,
+        role: "assistant",
+        text: "请提供角色设定",
+        createdAt: now,
+      });
+      await db.insert(toolCall).values({
+        id: "cc-tool-follow-up-q1",
+        messageId: "cc-asst-follow-up-q1",
+        name: "createQuestion",
+        input: {
+          title: "角色设定",
+          questions: [{ question: "你想扮演谁？" }],
+        },
+        createdAt: now,
+      });
+
+      setMockResponses([
+        {
+          kind: "tool-call",
+          toolName: "createQuestion",
+          input: {
+            title: "继续补充",
+            questions: [{ question: "故事开始时间？" }],
+          },
+          text: "还需要一个设定：",
+          usage: { inputTokens: 30, outputTokens: 40 },
+        },
+        {
+          kind: "text",
+          text: "如果 Weaver 被调用就会消费这条响应",
+          usage: { inputTokens: 50, outputTokens: 60 },
+        },
+      ]);
+
+      const { continueConversation } = await import("@/lib/actions/llm");
+      const result = await continueConversation(chatId, "我想扮演赵云");
+
+      const chunks: unknown[] = [];
+      for await (const chunk of readStreamableValue(result.content)) {
+        chunks.push(chunk);
+      }
+      await new Promise((r) => setTimeout(r, 50));
+
+      const assistantMessage = await db.query.message.findFirst({
+        where: { id: result.messageId },
+        with: { toolCalls: true },
+      });
+      const answeredQuestion = await db.query.toolCall.findFirst({
+        where: { id: "cc-tool-follow-up-q1" },
+      });
+
+      expect(answeredQuestion?.result).toBe("我想扮演赵云");
+      expect(assistantMessage?.text).toContain("还需要一个设定");
+      expect(
+        assistantMessage?.toolCalls.some((tc) => tc.name === "createQuestion"),
+      ).toBe(true);
+      expect(JSON.stringify(chunks)).toContain('"toolName":"createQuestion"');
+      expect(remainingMockResponses()).toBe(1);
+
+      resetMock();
+    });
+
+    test("should include recent question answers and exclude unrelated messages when answering another setup question", async () => {
+      const now = new Date();
+      const chatId = "cc-multi-question-context";
+      const minuteAgo = new Date(now.getTime() - 60_000);
+
+      await db.insert(chat).values({
+        id: chatId,
+        userId: "test-user",
+        title: "Multi Question",
+        createdAt: minuteAgo,
+        updatedAt: minuteAgo,
+      });
+      await db.insert(story).values({
+        id: "cc-story-multi-question-context",
+        chatId,
+        source: "三国",
+        singularity: "特异点",
+        createdAt: minuteAgo,
+        updatedAt: minuteAgo,
+      });
+      await db.insert(message).values([
+        {
+          id: "cc-asst-multi-q1",
+          chatId,
+          role: "assistant",
+          text: "第一轮问题",
+          createdAt: new Date(now.getTime() - 40_000),
+        },
+        {
+          id: "cc-asst-multi-unrelated",
+          chatId,
+          role: "assistant",
+          text: "这条普通 assistant 消息不应该进入设定问答上下文",
+          createdAt: new Date(now.getTime() - 30_000),
+        },
+        {
+          id: "cc-asst-multi-q2",
+          chatId,
+          role: "assistant",
+          text: "第二轮问题",
+          createdAt: new Date(now.getTime() - 20_000),
+        },
+      ]);
+      await db.insert(toolCall).values([
+        {
+          id: "cc-tool-multi-q1",
+          messageId: "cc-asst-multi-q1",
+          name: "createQuestion",
+          input: {
+            title: "角色",
+            questions: [{ question: "你想扮演谁？" }],
+          },
+          result: "我想扮演赵云",
+          createdAt: new Date(now.getTime() - 40_000),
+        },
+        {
+          id: "cc-tool-multi-q2",
+          messageId: "cc-asst-multi-q2",
+          name: "createQuestion",
+          input: {
+            title: "时间",
+            questions: [{ question: "故事开始时间？" }],
+          },
+          createdAt: new Date(now.getTime() - 20_000),
+        },
+      ]);
+
+      setMockResponses([
+        {
+          kind: "text",
+          text: "设定补充完成",
+          usage: { inputTokens: 30, outputTokens: 40 },
+        },
+        {
+          kind: "text",
+          text: "第一章：风云再起...",
+          usage: { inputTokens: 50, outputTokens: 60 },
+        },
+      ]);
+
+      const { continueConversation } = await import("@/lib/actions/llm");
+      const result = await continueConversation(chatId, "建兴十二年五丈原");
+
+      for await (const _ of readStreamableValue(result.content)) void _;
+      await new Promise((r) => setTimeout(r, 50));
+
+      const archivistCall = JSON.stringify(getMockCallOptions()[0]);
+      expect(archivistCall).toContain("你想扮演谁？");
+      expect(archivistCall).toContain("我想扮演赵云");
+      expect(archivistCall).toContain("故事开始时间？");
+      expect(archivistCall).toContain("建兴十二年五丈原");
+      expect(archivistCall).not.toContain(
+        "这条普通 assistant 消息不应该进入设定问答上下文",
+      );
 
       resetMock();
     });

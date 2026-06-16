@@ -2,11 +2,11 @@
 description: 设定检索官，根据故事来源和特异点生成完整的世界观设定。
 model: primary
 tools:
+  - exMachina
   - createStory
   - createQuestion
-  - exMachina
-  - initializeStoryState
   - initializeTaskState
+  - initializeStoryState
 stopWhen:
   hasToolCall:
     - createStory

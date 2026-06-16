@@ -36,6 +36,7 @@ import { addUsage, createTokenAccumulator } from "@/lib/llm/usage";
 import {
   toHistoryModelMessage,
   toModelMessage,
+  toModelMessages,
   toRuntimeStateModelMessage,
   toStoryModelMessage,
 } from "@/lib/llm/utils";
@@ -77,6 +78,15 @@ const ORACLE_TOOL_STATUS: Record<string, string> = {
   dice: "正在判定骰子...",
   activateSystem: "正在激活系统...",
 };
+
+function hasCreateQuestionToolCall(
+  toolCalls: Array<{ dynamic?: boolean; toolName: string }>,
+) {
+  return toolCalls.some(
+    (toolCall) =>
+      toolCall.dynamic !== true && toolCall.toolName === "createQuestion",
+  );
+}
 
 export async function createStory(source: string, singularity: string) {
   const traceId = nanoid();
@@ -188,11 +198,12 @@ async function continueCreateStory(
     statusText: AGENT_STATUS_TEXT.Archivist,
   });
   log.info("agent.Archivist.start");
-  const archivistResult = await archivist.generate({
+  const archivistResult = await archivist.stream({
     prompt: [
       {
         role: "user",
-        content: "请根据设定的故事背景和特异点，向用户提问并生成故事相关设定。",
+        content:
+          "请根据设定的故事背景、特异点以及用户回答，必要时继续向用户提问；信息完整后生成故事设定、角色设定，并初始化主角状态和任务状态。",
       },
       ...messages,
     ],
@@ -200,10 +211,28 @@ async function continueCreateStory(
     onStepFinish(step) {
       log.step(step, "agent.Archivist.step.finish");
     },
+    async onFinish(event) {
+      log.finish(event, "agent.Archivist.finish");
+      if (hasCreateQuestionToolCall(event.toolCalls)) {
+        await Promise.all(experimental_context.pendingStateUpdates ?? []);
+        await onFinish(event as unknown as OnFinishEvent<ToolSet>);
+        return;
+      }
+
+      if (experimental_context.tokenUsage) {
+        addUsage(experimental_context.tokenUsage, event.totalUsage);
+      }
+    },
+    onError({ error }) {
+      log.error({ error, agent: "archivist" }, "agent.stream.error");
+      stream.update({ type: "agent-status", agentId: null });
+    },
   });
 
-  if (experimental_context.tokenUsage) {
-    addUsage(experimental_context.tokenUsage, archivistResult.totalUsage);
+  // The stream is consumed by awaiting toolCalls/response before the caller
+  // converts it to UI chunks. AI SDK buffers stream results for this reuse.
+  if (hasCreateQuestionToolCall(await archivistResult.toolCalls)) {
+    return archivistResult;
   }
 
   stream.update({
@@ -214,7 +243,7 @@ async function continueCreateStory(
   log.info("agent.Weaver.start");
   return await weaver.stream({
     prompt: [
-      ...archivistResult.response.messages,
+      ...(await archivistResult.response).messages,
       {
         role: "user",
         content:
@@ -492,13 +521,49 @@ export async function continueConversation(chatId: string, prompt: string) {
     };
   }
 
+  const isSettingComplete =
+    storyData?.type && storyData?.describe && storyData?.worldview;
+
+  const questionMessages = isSettingComplete
+    ? []
+    : (
+        await db.query.message.findMany({
+          with: {
+            toolCalls: true,
+          },
+          where: {
+            chatId,
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+          limit: 10,
+        })
+      )
+        .reverse()
+        .filter(
+          (message) =>
+            message.role === "assistant" &&
+            message.toolCalls.some((tc) => tc.name === "createQuestion"),
+        )
+        .map((message) =>
+          recentQuestion && message.id === latestMessage?.id
+            ? latestMessage
+            : message,
+        );
+
   const storyMessage = toStoryModelMessage(storyData);
   const runtimeMessage = toRuntimeStateModelMessage({
     story: storyData,
     protagonistState: protagonistData,
   });
   const historyMessage = toHistoryModelMessage(history);
-  const latestInputMessage = toModelMessage(latestModelMessages);
+  const latestInputMessage = isSettingComplete
+    ? toModelMessage(latestModelMessages)
+    : [
+        ...toModelMessages(questionMessages),
+        ...(recentQuestion ? [] : toModelMessage(latestModelMessages)),
+      ];
   const modelMessage = [
     storyMessage,
     runtimeMessage,
@@ -555,9 +620,6 @@ export async function continueConversation(chatId: string, prompt: string) {
     };
 
     try {
-      const isSettingComplete =
-        storyData?.type && storyData?.describe && storyData?.worldview;
-
       const result = isSettingComplete
         ? await continueStory(
             chatId,

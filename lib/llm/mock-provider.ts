@@ -29,6 +29,8 @@ export type MockToolCallResponse = {
 export type MockResponse = MockTextResponse | MockToolCallResponse;
 
 let mockQueue: MockResponse[] = [];
+let toolCallCounter = 0;
+let mockCallOptions: unknown[] = [];
 
 export function setMockResponses(responses: MockResponse[]) {
   mockQueue = [...responses];
@@ -36,10 +38,15 @@ export function setMockResponses(responses: MockResponse[]) {
 
 export function resetMock() {
   mockQueue = [];
+  mockCallOptions = [];
 }
 
 export function remainingMockResponses(): number {
   return mockQueue.length;
+}
+
+export function getMockCallOptions(): readonly unknown[] {
+  return mockCallOptions;
 }
 
 function shiftResponse(): MockResponse | undefined {
@@ -85,6 +92,7 @@ function toolCallStreamChunks(
   text?: string,
 ): LanguageModelV3StreamPart[] {
   const inputJson = JSON.stringify(input);
+  const toolCallId = `${toolName}_MOCK_${toolCallCounter++}`;
   const chunks: LanguageModelV3StreamPart[] = text
     ? [
         { type: "text-start", id: "t1" },
@@ -95,10 +103,10 @@ function toolCallStreamChunks(
 
   return [
     ...chunks,
-    { type: "tool-input-start", id: "tc1", toolName },
-    { type: "tool-input-delta", id: "tc1", delta: inputJson },
-    { type: "tool-input-end", id: "tc1" },
-    { type: "tool-call", toolCallId: "tc1", toolName, input: inputJson },
+    { type: "tool-input-start", id: toolCallId, toolName },
+    { type: "tool-input-delta", id: toolCallId, delta: inputJson },
+    { type: "tool-input-end", id: toolCallId },
+    { type: "tool-call", toolCallId, toolName, input: inputJson },
     {
       type: "finish",
       finishReason: { unified: "tool-calls", raw: undefined },
@@ -117,7 +125,7 @@ function toolCallGenerateContent(
 ): LanguageModelV3Content {
   return {
     type: "tool-call",
-    toolCallId: `${toolName}_MOCK`,
+    toolCallId: `${toolName}_MOCK_${toolCallCounter++}`,
     toolName,
     input: JSON.stringify(input),
   };
@@ -128,7 +136,8 @@ const defaultUsage = toV3Usage({ inputTokens: 1, outputTokens: 1 });
 // 官方文档 https://ai-sdk.dev/docs/ai-sdk-core/testing
 export function createMockProvider<CHAT_MODEL_IDS extends LanguageModel>() {
   const defaultMock = new MockLanguageModelV3({
-    doGenerate: async () => {
+    doGenerate: async (options) => {
+      mockCallOptions.push(options);
       const resp = shiftResponse();
       if (!resp) {
         return {
@@ -153,7 +162,8 @@ export function createMockProvider<CHAT_MODEL_IDS extends LanguageModel>() {
         warnings: [],
       };
     },
-    doStream: async () => {
+    doStream: async (options) => {
+      mockCallOptions.push(options);
       const resp = shiftResponse();
       if (!resp) {
         return {
