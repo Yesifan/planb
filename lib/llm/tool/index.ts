@@ -63,7 +63,7 @@ const judgeInput = tool({
     content: z
       .string()
       .describe(
-        "approve 时填写转化后的历史年表文本（供下游 Agent 消费）；reject 时填写清晰的拒绝原因（用于提示用户重新输入）",
+        "approve 时填写标准化后的用户输入；reject 时填写清晰的拒绝原因（用于提示用户重新输入）",
       ),
   }),
 });

@@ -264,6 +264,9 @@ async function continueCreateStory(
   );
   const missing = missingInitToolNames(completedToolNames);
   if (missing.length > 0) {
+    log.error(
+      `Archivist initialization failed: missing required tools: ${missing.join(", ")}`,
+    );
     throw new Error(
       `Archivist initialization failed: missing required tools: ${missing.join(", ")}`,
     );

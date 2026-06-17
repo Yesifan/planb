@@ -1,8 +1,6 @@
 ---
 description: 任务维护者，根据 Oracle 大纲维护任务列表。
 model: secondary
-reasoning:
-  enabled: false
 tools:
   - initializeTaskState
   - updateTaskState

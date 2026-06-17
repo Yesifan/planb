@@ -217,7 +217,12 @@ export function createReasoningProviderOptions(
       return { [providerName]: { reasoningEffort: reasoning.effort } };
     }
     if (reasoning.enabled === false) {
-      return { [providerName]: { thinking: { type: "disabled" } } };
+      return {
+        [providerName]: {
+          thinking: { type: "disabled" },
+          reasoningEffort: "minimal",
+        },
+      };
     }
   }
 

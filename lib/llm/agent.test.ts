@@ -136,7 +136,12 @@ describe("createAgent", () => {
         { enabled: false },
         compatibleProvidersConfig,
       ),
-    ).toEqual({ doubao: { thinking: { type: "disabled" } } });
+    ).toEqual({
+      doubao: {
+        thinking: { type: "disabled" },
+        reasoningEffort: "minimal",
+      },
+    });
   });
 
   test("should not pass reasoning to provider when creating the model", () => {

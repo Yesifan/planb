@@ -1,8 +1,6 @@
 ---
 description: 运行状态维护者，根据 Oracle 大纲更新主角五维和世界当前快照。
 model: secondary
-reasoning:
-  enabled: false
 tools:
   - initializeStoryState
   - updateStoryState
