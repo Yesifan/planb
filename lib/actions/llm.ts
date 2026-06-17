@@ -88,6 +88,7 @@ const AGENT_STATUS_TEXT = {
 const ORACLE_TOOL_STATUS: Record<string, string> = {
   dice: "正在判定骰子...",
   activateSystem: "正在激活系统...",
+  reviewBranch: "正在审查大纲事实一致性...",
 };
 
 function hasCreateQuestionToolCall(
@@ -303,10 +304,10 @@ async function continueCreateStory(
 }
 
 /**
- * 主流程：Sentinel → Oracle → Weaver
+ * 主流程：Sentinel → Oracle → Arbiter(reviewBranch) → Weaver
  *
  * 1. Sentinel 审查用户输入 — 通过 judgeInput 工具给出 approve/reject 判定
- * 2. Oracle 根据审查后的输入生成分支剧情，并在最终输出前完成自我审查（内部通过 dice/activateSystem 工具完成判定和调度）
+ * 2. Oracle 根据审查后的输入生成分支剧情，并在最终输出前调用一次 reviewBranch 完成事实一致性审查
  * 3. Weaver 将历史年表扩写为小说正文
  */
 async function continueStory(
@@ -419,6 +420,14 @@ async function continueStory(
   });
 
   const oracleText = await oracleResult.text;
+  const oracleSteps = await oracleResult.steps;
+  const reviewBranchCount = oracleSteps
+    .flatMap((step) => step.toolCalls)
+    .filter((toolCall) => toolCall.toolName === "reviewBranch").length;
+
+  if (reviewBranchCount !== 1) {
+    log.error({ reviewBranchCount }, "agent.Oracle.reviewBranch.count.invalid");
+  }
 
   if (oracleText.length === 0) {
     log.error(
@@ -446,7 +455,7 @@ async function continueStory(
     `##最新章节大纲 \n\n` +
     `${oracleText}`;
 
-  log.debug("weaverContent" + weaverContent);
+  log.debug("weaverContent: \n\n" + weaverContent);
 
   const result = await weaver.stream({
     prompt: [
@@ -543,7 +552,7 @@ export async function continueConversation(chatId: string, prompt: string) {
 
   log.info({ chatId, prompt }, "action.input");
 
-  const history = await getChatHistory(chatId, 10);
+  const history = await getChatHistory(chatId, 5);
   const storyData = await db.query.story.findFirst({
     where: { chatId: chatId },
   });

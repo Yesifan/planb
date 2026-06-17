@@ -28,3 +28,4 @@
     - 在 `lib/llm/db.ts:saveMessageWithTool` 一处持久化到 message 行的 inputTokens/outputTokens（一次 turn 只调用一次，是聚合写入的唯一点）
     - 三入口（createStory / continueCreateStory / continueStory）调用代码保持一致：仅在构造 ctx 时多传 `tokenUsage: createTokenAccumulator()`
   - 显示部分待办：前端聊天界面尚未读取并展示每条 assistant message 的 inputTokens/outputTokens
+- [ ] 把故事初始设定和故事状态合并，去掉故事初始设定表，简化数据结构和调用流程

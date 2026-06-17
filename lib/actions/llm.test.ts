@@ -58,7 +58,8 @@ const initializeStoryStateToolResponse = {
   kind: "tool-call" as const,
   toolName: "initializeStoryState",
   input: {
-    profile: "主角是诸葛亮，刚从病危中稳住局面。",
+    profile:
+      "主角是诸葛亮，刚从病危中稳住局面。重要资源：蜀军约10万兵力，仍在五丈原维持战线；军粮30日余量，补给线压力明显。",
     dimensions: [
       { name: "身体", value: 55, summary: "病势初稳" },
       { name: "心智", value: 88, summary: "判断清晰" },
@@ -136,6 +137,10 @@ describe("createStory", () => {
         { question: "故事的主要矛盾？" },
       ],
     });
+
+    expect(JSON.stringify(getMockCallOptions()[0])).not.toContain(
+      "reviewBranch",
+    );
 
     resetMock();
   });
@@ -300,7 +305,8 @@ describe("continueConversation", () => {
           kind: "tool-call",
           toolName: "initializeStoryState",
           input: {
-            profile: "主角是诸葛亮，刚从病危中稳住局面。",
+            profile:
+              "主角是诸葛亮，刚从病危中稳住局面。重要资源：蜀军约10万兵力，仍在五丈原维持战线；军粮30日余量，补给线压力明显。",
             dimensions: [
               { name: "身体", value: 55, summary: "病势初稳" },
               { name: "心智", value: 88, summary: "判断清晰" },
@@ -602,6 +608,7 @@ describe("continueConversation", () => {
       expect(archivistCall).toContain("我想扮演赵云");
       expect(archivistCall).toContain("故事开始时间？");
       expect(archivistCall).toContain("建兴十二年五丈原");
+      expect(archivistCall).not.toContain("reviewBranch");
       expect(archivistCall).not.toContain(
         "这条普通 assistant 消息不应该进入设定问答上下文",
       );
@@ -673,6 +680,19 @@ describe("continueConversation", () => {
           usage: { inputTokens: 10, outputTokens: 20 },
         },
         {
+          kind: "tool-call",
+          toolName: "reviewBranch",
+          input: {
+            content: "玩家操作：进攻长安\n故事大纲草案：长安之战...",
+          },
+          usage: { inputTokens: 11, outputTokens: 12 },
+        },
+        {
+          kind: "text",
+          text: "### 事实一致性审查\n\n通过\n\n### 修改建议\n\n- 无需修改",
+          usage: { inputTokens: 13, outputTokens: 14 },
+        },
+        {
           kind: "text",
           text: "剧情大纲：长安之战...",
           usage: { inputTokens: 60, outputTokens: 80 },
@@ -686,7 +706,8 @@ describe("continueConversation", () => {
           kind: "tool-call",
           toolName: "updateStoryState",
           input: {
-            profile: "主角是诸葛亮，正在推进长安战役。",
+            profile:
+              "主角是诸葛亮，正在推进长安战役。重要资源：长安前线兵力2万先锋，已占据要道；军粮20日余量，相持中持续消耗。",
             dimensionValues: [68, 84, 64, 48, 57],
             worldSnapshot: "## 当前局势\n长安战役进入相持。",
           },
@@ -721,8 +742,11 @@ describe("continueConversation", () => {
       });
       const latest = assistantMessages[0];
       expect(latest?.text).toContain("长安烽火");
-      expect(latest?.inputTokens).toBe(136);
-      expect(latest?.outputTokens).toBe(178);
+      expect(latest?.inputTokens).toBe(160);
+      expect(latest?.outputTokens).toBe(204);
+
+      const oracleCall = JSON.stringify(getMockCallOptions()[1]);
+      expect(oracleCall).toContain("reviewBranch");
 
       const storyRow = await db.query.story.findFirst({
         where: { chatId },
@@ -776,6 +800,19 @@ describe("continueConversation", () => {
           usage: { inputTokens: 10, outputTokens: 20 },
         },
         {
+          kind: "tool-call",
+          toolName: "reviewBranch",
+          input: {
+            content: "玩家操作：进攻长安\n故事大纲草案：长安之战...",
+          },
+          usage: { inputTokens: 11, outputTokens: 12 },
+        },
+        {
+          kind: "text",
+          text: "### 事实一致性审查\n\n通过\n\n### 修改建议\n\n- 无需修改",
+          usage: { inputTokens: 13, outputTokens: 14 },
+        },
+        {
           kind: "text",
           text: "剧情大纲：长安之战...",
           usage: { inputTokens: 60, outputTokens: 80 },
@@ -789,7 +826,8 @@ describe("continueConversation", () => {
           kind: "tool-call",
           toolName: "initializeStoryState",
           input: {
-            profile: "主角是诸葛亮，正在推进长安战役。",
+            profile:
+              "主角是诸葛亮，正在推进长安战役。重要资源：长安前线兵力2万先锋，已占据要道；军粮20日余量，相持中持续消耗。",
             dimensions: [
               { name: "身体", value: 68, summary: "仍能支撑军务" },
               { name: "心智", value: 84, summary: "谋划清晰" },
@@ -830,8 +868,9 @@ describe("continueConversation", () => {
       expect(storyRow?.worldSnapshot).toContain("长安战役进入相持");
       expect(storyRow?.taskState).toContain("攻取长安");
       expect(protagonist?.dimensions).toHaveLength(5);
-      expect(assistantMessages[0]?.inputTokens).toBe(136);
-      expect(assistantMessages[0]?.outputTokens).toBe(178);
+      expect(assistantMessages[0]?.inputTokens).toBe(160);
+      expect(assistantMessages[0]?.outputTokens).toBe(204);
+      expect(JSON.stringify(getMockCallOptions()[1])).toContain("reviewBranch");
 
       resetMock();
     });

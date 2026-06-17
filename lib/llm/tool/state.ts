@@ -16,7 +16,12 @@ const protagonistDimensionSchema = z.object({
 });
 
 const storyStateSchema = z.object({
-  profile: z.string().min(1).describe("主角身份、处境、当前目标的简短摘要"),
+  profile: z
+    .string()
+    .min(1)
+    .describe(
+      "主角身份、处境、当前目标，以及主角相关的重要数字和物品，例如资产、宝物、军队、军粮、资金、装备等；必须保留关键数量、金额、规模或件数",
+    ),
   dimensions: z
     .array(protagonistDimensionSchema)
     .length(5)
@@ -31,7 +36,12 @@ const storyStateSchema = z.object({
 });
 
 const updateStoryStateSchema = z.object({
-  profile: z.string().min(1).describe("主角身份、处境、当前目标的简短摘要"),
+  profile: z
+    .string()
+    .min(1)
+    .describe(
+      "主角身份、处境、当前目标，以及主角相关的重要数字和物品，例如资产、宝物、军队、军粮、资金、装备等；必须保留关键数量、金额、规模或件数",
+    ),
   dimensionValues: z
     .array(z.number().int().min(0).max(100))
     .length(5)
@@ -124,7 +134,7 @@ export async function updateTaskStateData(
 
 export const initializeStoryState = tool({
   description:
-    "初始化主角五维结构化状态和世界当前快照。只能在故事设定完成后调用一次。",
+    "初始化主角五维结构化状态和世界当前快照。profile 必须包含主角重要资源数字和物品。只能在故事设定完成后调用一次。",
   inputSchema: storyStateSchema,
   async execute(input, { experimental_context }) {
     const { db, chatId, traceId } = experimental_context as ToolContext;
@@ -138,7 +148,7 @@ export const initializeStoryState = tool({
 
 export const updateStoryState = tool({
   description:
-    "根据最新 Oracle 大纲更新主角五维数值和世界当前快照。已有五维的名称和描述由系统保留，工具只接收并应用每维 value。",
+    "根据最新 Oracle 大纲更新主角五维数值和世界当前快照。profile 必须包含主角重要资源数字和物品。已有五维的名称和描述由系统保留，工具只接收并应用每维 value。",
   inputSchema: updateStoryStateSchema,
   async execute(input, { experimental_context }) {
     const { db, chatId, traceId } = experimental_context as ToolContext;

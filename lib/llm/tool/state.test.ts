@@ -30,7 +30,8 @@ describe("state tools", () => {
     });
 
     await initializeStoryStateData(db, "state-init-chat", {
-      profile: "主角是蜀汉丞相诸葛亮，当前目标是稳定北伐局势。",
+      profile:
+        "主角是蜀汉丞相诸葛亮，当前目标是稳定北伐局势。重要资源：蜀军约10万兵力，仍可维持北伐战线；军粮30日余量，补给线压力明显。",
       dimensions: [
         { name: "身体", value: 72, summary: "精力尚可" },
         { name: "心智", value: 91, summary: "判断清晰" },
@@ -49,6 +50,8 @@ describe("state tools", () => {
     });
 
     expect(protagonist?.profile).toContain("诸葛亮");
+    expect(protagonist?.profile).toContain("蜀军约10万兵力");
+    expect(protagonist?.profile).toContain("军粮30日余量");
     expect(protagonist?.dimensions).toHaveLength(5);
     expect(storyRow?.worldSnapshot).toContain("当前局势");
   });
@@ -56,7 +59,7 @@ describe("state tools", () => {
   test("should reject protagonist dimensions when count is not five", async () => {
     await expect(
       initializeStoryStateData(db, "state-invalid-chat", {
-        profile: "主角",
+        profile: "主角，重要资源：兵力100人。",
         dimensions: [
           { name: "身体", value: 50, summary: "正常" },
           { name: "心智", value: 50, summary: "正常" },
@@ -116,7 +119,7 @@ describe("state tools", () => {
       updatedAt: now,
     });
     await initializeStoryStateData(db, "state-update-chat", {
-      profile: "主角是诸葛亮。",
+      profile: "主角是诸葛亮。重要资源：军粮40日余量，尚可支撑。",
       dimensions: [
         { name: "身体", value: 70, summary: "稳定" },
         { name: "心智", value: 80, summary: "稳定" },
@@ -128,7 +131,8 @@ describe("state tools", () => {
     });
 
     await updateStoryStateData(db, "state-update-chat", {
-      profile: "主角是诸葛亮，已取得长安战役主动权。",
+      profile:
+        "主角是诸葛亮，已取得长安战役主动权。重要资源：长安前线兵力2万先锋，已占据要道。",
       dimensionValues: [68, 84, 64, 48, 57],
       worldSnapshot: "## 当前局势\n长安战役进入相持。",
     });
@@ -141,6 +145,7 @@ describe("state tools", () => {
     });
 
     expect(protagonist?.profile).toContain("主动权");
+    expect(protagonist?.profile).toContain("长安前线兵力2万先锋");
     expect(protagonist?.dimensions[0]?.value).toBe(68);
     expect(protagonist?.dimensions[0]?.name).toBe("身体");
     expect(protagonist?.dimensions[0]?.summary).toBe("稳定");

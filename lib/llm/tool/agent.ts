@@ -87,12 +87,12 @@ export const exMachina = tool({
 
 export const reviewBranch = tool({
   description:
-    "调用裁决者 Arbiter 对故事大纲进行逻辑审查，并返回最小修改建议。content 应包含玩家操作、故事大纲、必要骰子记录和关键上下文，方便 Arbiter 判断世界逻辑、人物行为、因果、时间线、骰子判定、暗线推进和决策岔口是否成立。",
+    "调用 Arbiter 对 Oracle 大纲进行事实一致性审查，并返回最小修改建议。content 应包含玩家操作、完整故事大纲和关键上下文，方便 Arbiter 检查时间线、任务状态、角色 OOC、世界设定等事实矛盾，也可指出其他与已建立事实冲突的问题。Arbiter 不评价叙事质量，不替 Oracle 重写大纲。",
   inputSchema: z.object({
     content: z
       .string()
       .describe(
-        "待审查材料。建议包含：1. 玩家操作；2. 完整故事大纲；3. 如有骰子，包含骰子 reason、点数和结果解释；4. 关键上下文，如世界规则、历史事实、运行状态、暗线依据和决策岔口停止理由。",
+        "待审查材料。建议包含：1. 玩家操作；2. 完整故事大纲；3. 关键上下文，如世界规则、历史事实、运行状态、任务状态、人物关系、地点、期限、资源、承诺、暗线依据和决策岔口停止理由。",
       ),
   }),
   async execute({ content }, { experimental_context }) {
@@ -124,7 +124,7 @@ export const reviewBranch = tool({
         historyMessage,
         {
           role: "user",
-          content: `## 待审查材料\n${content}\n\n请审查大纲是否成立，并给出最小修改建议。不要创作新剧情，不要扩写正文。`,
+          content: `## 待审查材料\n${content}\n\n请审查大纲是否存在事实一致性问题，并给出最小修改建议。不要创作新剧情，不要扩写正文。`,
         },
       ].filter((m): m is ModelMessage => m !== undefined),
       experimental_context,
