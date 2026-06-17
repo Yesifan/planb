@@ -9,13 +9,13 @@
 - [ ] 没有 copy
 - [x] 主角五维系统
   - 新增 `protagonist_state` 表保存主角摘要和 AI 按故事类型生成的五维 JSON，每维使用 0-100 且高分恒好的数值语义。
-  - 新增 Statekeeper Agent 和 `initializeStoryState` / `updateStoryState` tool，通过 tool 初始化和更新主角五维，并在每轮 token 聚合前完成状态更新。
+  - 新增 `initializeStoryState` / `updateStoryState` tool，通过 Runtimekeeper 初始化和更新主角五维，并在每轮 token 聚合前完成状态更新。
   - 将 Inspector 中的五维展示抽成 `components/stat-dimension.tsx`，用五边形雷达图展示 0-100 数值，并支持点击维度名称查看对应说明。
 - [x] 世界当前快照系统
-  - 在 `story` 表新增 `world_snapshot` 文本字段，由 Statekeeper 使用固定 Markdown 快照模板维护世界当前时点、关键环境状态、势力、人物和已发生重要事件。
+  - 在 `story` 表新增 `world_snapshot` 文本字段，由 Runtimekeeper 使用固定 Markdown 快照模板维护世界当前时点、关键环境状态、势力、人物和已发生重要事件。
   - 主流程 prompt 注入静态设定、运行状态和最近 20 条 history，System/Arbiter 等 sub-agent 也会读取当前快照。
 - [x] 任务系统
-  - 在 `story` 表新增 `task_state` 文本字段，由 Taskmaster Agent 根据 Oracle 大纲维护固定 Markdown 任务板，支持新建任务、更新进度、标记完成或失败。
+  - 在 `story` 表新增 `task_state` 文本字段，由 Runtimekeeper 根据 Oracle 大纲维护固定 Markdown 任务板，支持新建任务、更新进度、标记完成或失败。
   - Inspector 右侧栏增加状态 / 任务 / Token tabs，展示主角五维、任务和 token；世界快照仅作为 Agent 上下文，不在 Inspector 展示。
 - [x] 发送message后输入框清空
   - 参考 AI Elements Prompt Input 示例，在 `components/story-prompt.tsx` 使用 React state 控制输入框，提交时立即清空本地 `text`，不修改通用 `PromptInputProvider` 行为。
@@ -30,7 +30,11 @@
   - 显示部分待办：前端聊天界面尚未读取并展示每条 assistant message 的 inputTokens/outputTokens
 - [x] 把故事初始设定和故事状态合并，去掉故事初始设定字段，简化数据结构和调用流程
   - 删除 `story.describe` 字段和对应生成/读取/UI 展示；`createStory` 仅保存 `type/worldview`。
-  - `worldSnapshot` 成为唯一世界快照描述源，由 `initializeStoryState` 初始化并由 Statekeeper 每轮更新。
+  - `worldSnapshot` 成为唯一世界快照描述源，由 `initializeStoryState` 初始化并由 Runtimekeeper 每轮更新。
   - 完成门控改为 `type && worldview && worldSnapshot`，不迁移历史 `describe` 数据。
-- [ ] TaskState 和 StoryState 的工具描述更详细，把 Statekeeper 和 Taskmaster 合并为一个 AGENT。如何更新 任务状态和故事状态的所有需要的信息都写入工具而不是 AGENT
+- [x] TaskState 和 StoryState 的工具描述更详细，把 Statekeeper 和 Taskmaster 合并为一个 AGENT。如何更新 任务状态和故事状态的所有需要的信息都写入工具而不是 AGENT
   - 其他工具也是，工具的功能和约束都写入工具而不是 agent，agent 中只写工作流和何时调用工具
+  - 新增 `Runtimekeeper` 统一负责故事运行状态和任务状态，删除独立 `Statekeeper` / `Taskmaster` Agent。
+  - 保留四个状态工具，但把 profile、worldSnapshot、taskState 的格式、更新规则和禁止事项下沉到 tool / field description。
+  - 续写后只调用一次 `runtimekeeper.generate`，调用处用自定义 `stopWhen` 保证同轮完成故事状态和任务状态维护。
+  - `initializeStoryStateData` / `updateStoryStateData` 使用 transaction 包住主角状态和 worldSnapshot 双写。

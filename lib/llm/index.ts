@@ -4,10 +4,9 @@ import Arbiter from "@/planb/agents/Arbiter.md";
 import Archivist from "@/planb/agents/Archivist.md";
 import ExMachina from "@/planb/agents/ExMachina.md";
 import Oracle from "@/planb/agents/Oracle.md";
+import Runtimekeeper from "@/planb/agents/Runtimekeeper.md";
 import Sentinel from "@/planb/agents/Sentinel.md";
-import Statekeeper from "@/planb/agents/Statekeeper.md";
 import System from "@/planb/agents/System.md";
-import Taskmaster from "@/planb/agents/Taskmaster.md";
 import Weaver from "@/planb/agents/Weaver.md";
 
 import { createAgent } from "./agent";
@@ -36,12 +35,14 @@ export const archivist = createAgent<
 export const exMachina = createAgent<PickTools<"saveSystemSetting">>("ExMachina", provider, ExMachina);
 export const oracle = createAgent("Oracle", provider, Oracle);
 export const system = createAgent("System", provider, System);
-export const statekeeper = createAgent<
-  PickTools<"initializeStoryState" | "updateStoryState">
->("Statekeeper", provider, Statekeeper);
-export const taskmaster = createAgent<
-  PickTools<"initializeTaskState" | "updateTaskState">
->("Taskmaster", provider, Taskmaster);
+export const runtimekeeper = createAgent<
+  PickTools<
+    | "initializeStoryState"
+    | "updateStoryState"
+    | "initializeTaskState"
+    | "updateTaskState"
+  >
+>("Runtimekeeper", provider, Runtimekeeper);
 export const weaver = createAgent("Weaver", provider, Weaver);
 
 export { primaryModel, provider, secondaryModel } from "./provider";

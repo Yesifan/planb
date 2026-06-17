@@ -31,10 +31,9 @@ export type AgentId =
   | "Chronicler"
   | "ExMachina"
   | "Oracle"
+  | "Runtimekeeper"
   | "Sentinel"
-  | "Statekeeper"
   | "System"
-  | "Taskmaster"
   | "Titler"
   | "Weaver"
   | (string & {});

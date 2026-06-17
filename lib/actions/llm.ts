@@ -26,9 +26,8 @@ import {
 import {
   archivist,
   oracle,
+  runtimekeeper,
   sentinel,
-  statekeeper,
-  taskmaster,
   weaver,
 } from "@/lib/llm";
 import {
@@ -81,8 +80,7 @@ const AGENT_STATUS_TEXT = {
   Oracle: "正在生成大纲...",
   Weaver: "正在撰写故事...",
   Archivist: "正在构建世界观...",
-  Statekeeper: "正在整理世界状态...",
-  Taskmaster: "正在整理任务...",
+  Runtimekeeper: "正在整理运行状态...",
 } as const;
 
 const ORACLE_TOOL_STATUS: Record<string, string> = {
@@ -490,48 +488,46 @@ async function continueStory(
 
   stream.update({
     type: "agent-status",
-    agentId: "Statekeeper",
-    statusText: AGENT_STATUS_TEXT.Statekeeper,
+    agentId: "Runtimekeeper",
+    statusText: AGENT_STATUS_TEXT.Runtimekeeper,
   });
 
-  const stateResult = statekeeper.generate({
+  const runtimeResultPromise = runtimekeeper.generate({
     prompt: [
       ...messages.slice(0, -1),
       {
         role: "user",
         content: isUpdate
-          ? `当前已存在旧的主角五维和世界快照。请根据大纲更新主角五维数值和世界当前快照。\n\n：${oracleText}`
-          : `当前没有旧的主角五维或世界快照。请根据故事设定初始化主角五维和世界当前快照。\n\n：${oracleText}`,
+          ? `当前已存在旧的主角五维、世界快照和任务状态。请根据大纲在同一轮内调用 updateStoryState 更新主角五维数值和世界当前快照，并调用 updateTaskState 更新任务列表。\n\n大纲：${oracleText}`
+          : `当前没有旧的主角五维、世界快照或任务状态。请根据故事设定在同一轮内调用 initializeStoryState 初始化主角五维和世界当前快照，并调用 initializeTaskState 初始化任务系统。\n\n大纲：${oracleText}`,
       },
     ],
     experimental_context,
+    stopWhen: ({ steps }) => {
+      const toolNames = new Set(
+        steps.flatMap((step) => step.toolCalls.map((toolCall) => toolCall.toolName)),
+      );
+      return (
+        (toolNames.has("initializeStoryState") ||
+          toolNames.has("updateStoryState")) &&
+        (toolNames.has("initializeTaskState") ||
+          toolNames.has("updateTaskState"))
+      );
+    },
     onStepFinish(step) {
-      log.step(step, "agent.Statekeeper.step.finish");
+      log.step(step, "agent.Runtimekeeper.step.finish");
     },
   });
 
-  const taskResult = taskmaster.generate({
-    prompt: [
-      ...messages.slice(0, -1),
-      {
-        role: "user",
-        content: isUpdate
-          ? `当前已存在旧的任务状态。请根据大纲更新任务列表。\n\n：${oracleText}`
-          : `当前没有旧的任务状态。请根据故事设定初始化任务系统，允许暂无任务。\n\n：${oracleText}`,
-      },
-    ],
-    experimental_context,
-    onStepFinish(step) {
-      log.step(step, "agent.taskmaster.step.finish");
-    },
-  });
-
-  Promise.all([stateResult, taskResult]).then(([stateResult, taskResult]) => {
-    if (experimental_context.tokenUsage) {
-      addUsage(experimental_context.tokenUsage, stateResult.totalUsage);
-      addUsage(experimental_context.tokenUsage, taskResult.totalUsage);
-    }
-  });
+  runtimeResultPromise
+    .then((runtimeResult) => {
+      if (experimental_context.tokenUsage) {
+        addUsage(experimental_context.tokenUsage, runtimeResult.totalUsage);
+      }
+    })
+    .catch((error) => {
+      log.error({ error, agent: "runtimekeeper" }, "agent.generate.error");
+    });
 
   return result;
 }
