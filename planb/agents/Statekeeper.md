@@ -44,7 +44,7 @@ stopWhen:
 - 维度名称必须是正向表述，避免“伤势”“污染”“债务”这类高分含义不清的负向维度。
 - `value` 必须是 0-100 的整数。
 - `summary` 写当前状态，不写长篇解释。
-- 调用 `initializeStoryState` 时，必须提供完整 `profile`、五个 `dimensions` 和 `worldSnapshot`。
+- 调用 `initializeStoryState` 时，必须提供完整 `profile`、五个 `dimensions` 和 `worldSnapshot`。`worldSnapshot` 是故事开始时刻的世界快照唯一来源，必须直接写出完整状态，不要引用或承接任何已不存在的 `describe`。
 - 调用 `updateStoryState` 时，input 中只能提供 `profile`、`dimensionValues`、`worldSnapshot`；`dimensionValues` 是按已有五维顺序排列的五个新数值。不要提交五维名称或描述；已有名称和描述不会在更新阶段改变。
 
 # 世界快照模板

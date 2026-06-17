@@ -167,7 +167,6 @@ export function toStoryModelMessage(story?: Story): ModelMessage | undefined {
       "# 故事设定",
       `## 故事类型\n${story.type}`,
       `## 世界观设定\n${story.worldview}`,
-      `## 初始设定\n${story.describe}`,
       `## 金手指设定\n${story.system ?? "无设定"}`,
     ].join("\n"),
   };

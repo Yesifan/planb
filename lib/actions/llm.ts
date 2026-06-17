@@ -583,7 +583,7 @@ export async function continueConversation(chatId: string, prompt: string) {
   }
 
   const isSettingComplete =
-    storyData?.type && storyData?.describe && storyData?.worldview;
+    storyData?.type && storyData?.worldview && storyData?.worldSnapshot;
 
   const questionMessages = isSettingComplete
     ? []

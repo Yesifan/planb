@@ -47,7 +47,6 @@ export default function StorySetting({ story }: { story?: Story }) {
                   <TabsList className="max-w-full justify-start overflow-x-auto">
                     <TabsTrigger value="basic">基本信息</TabsTrigger>
                     <TabsTrigger value="worldview">世界观</TabsTrigger>
-                    <TabsTrigger value="describe">故事初始设定</TabsTrigger>
                     <TabsTrigger value="system">系统初始设定</TabsTrigger>
                   </TabsList>
                   <TabsContent value="basic" className="pt-4">
@@ -92,20 +91,6 @@ export default function StorySetting({ story }: { story?: Story }) {
                     ) : (
                       <div className="text-muted-foreground text-sm">
                         暂无世界观设定
-                      </div>
-                    )}
-                  </TabsContent>
-                  <TabsContent value="describe" className="pt-4">
-                    {story.describe ? (
-                      <Streamdown
-                        plugins={streamdownPlugins}
-                        className="[&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
-                      >
-                        {story.describe}
-                      </Streamdown>
-                    ) : (
-                      <div className="text-muted-foreground text-sm">
-                        暂无描述
                       </div>
                     )}
                   </TabsContent>

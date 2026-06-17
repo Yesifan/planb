@@ -33,7 +33,6 @@ describe("getChatWithStory", () => {
       source: "三国演义",
       singularity: "如果诸葛亮没有病死五丈原",
       type: "历史改编",
-      describe: "一个关于蜀汉延续的故事",
       worldview: "架空三国",
       createdAt: now,
       updatedAt: now,

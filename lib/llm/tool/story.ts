@@ -10,12 +10,6 @@ import { ToolContext } from "../type";
 export const CreateStorySchema = z.object({
   title: z.string().min(1),
   type: z.string().min(1, "Story type"),
-  describe: z
-    .string()
-    .min(
-      1,
-      "初始状态——故事开始时刻的世界快照：主角状态、势力格局、NPC处境、开局冲突",
-    ),
   worldview: z
     .string()
     .min(
@@ -46,7 +40,6 @@ export const createStory = tool({
         .update(story)
         .set({
           type: input.type,
-          describe: input.describe,
           worldview: input.worldview,
         })
         .where(eq(story.chatId, chatId));

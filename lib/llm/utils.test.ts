@@ -25,7 +25,6 @@ describe("toRuntimeStateModelMessage", () => {
         source: "三国",
         singularity: "特异点",
         type: "历史",
-        describe: "初始",
         worldview: "世界",
         system: null,
         worldSnapshot: "## 当前局势\n北伐推进中。",

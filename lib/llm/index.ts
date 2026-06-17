@@ -20,7 +20,6 @@ type PickTools<K extends keyof typeof Tools> = Pick<typeof Tools, K>;
 export const ArchivistOutputSchema = z.object({
   title: z.string().min(1),
   type: z.string().min(1, "Story type cannot be empty"),
-  describe: z.string().min(1, "Story description cannot be empty"),
   worldview: z.string().min(1, "Worldview cannot be empty"),
 });
 

@@ -56,7 +56,6 @@ export const story = sqliteTable("story", {
   source: text("source").notNull(),
   singularity: text("singularity").notNull(),
   type: text("type"),
-  describe: text("describe"),
   worldview: text("worldview"),
   system: text("system"),
   worldSnapshot: text("world_snapshot"),

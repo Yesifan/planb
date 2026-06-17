@@ -130,7 +130,6 @@ describe("getChatTokens", () => {
       source: "三国",
       singularity: "孔明北伐",
       type: "历史",
-      describe: "蜀汉",
       worldview: "九州",
       system: "无",
       createdAt: now,
@@ -155,7 +154,7 @@ describe("getChatTokens", () => {
     expect(result).toEqual({
       inputTokens: 0,
       outputTokens: 0,
-      contextTokens: 44,
+      contextTokens: 37,
     });
   });
 

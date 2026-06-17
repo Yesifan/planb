@@ -48,7 +48,6 @@ const createStoryToolResponse = {
   input: {
     title: "五丈原新局",
     type: "历史改编",
-    describe: "诸葛亮病势转稳，蜀军仍在五丈原维持战线。",
     worldview: "架空三国，信息传递依赖驿道与军报。",
   },
   usage: { inputTokens: 3, outputTokens: 4 },
@@ -332,7 +331,6 @@ describe("continueConversation", () => {
           input: {
             title: "五丈原新局",
             type: "历史改编",
-            describe: "诸葛亮病势转稳，蜀军仍在五丈原维持战线。",
             worldview: "架空三国，信息传递依赖驿道与军报。",
           },
           usage: { inputTokens: 30, outputTokens: 40 },
@@ -635,7 +633,6 @@ describe("continueConversation", () => {
         source: "三国",
         singularity: "特异点",
         type: "历史改编",
-        describe: "蜀汉延续的故事",
         worldview: "架空三国",
         worldSnapshot: "## 世界当前时点\n旧状态",
         taskState: "## 进行中\n- 攻取长安：尚未开始。",
@@ -778,8 +775,8 @@ describe("continueConversation", () => {
         source: "三国",
         singularity: "特异点",
         type: "历史改编",
-        describe: "蜀汉延续的故事",
         worldview: "架空三国",
+        worldSnapshot: "## 世界当前时点\n尚无运行状态",
         createdAt: now,
         updatedAt: now,
       });

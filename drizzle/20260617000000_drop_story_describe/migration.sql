@@ -1,0 +1,1 @@
+ALTER TABLE `story` DROP COLUMN `describe`;

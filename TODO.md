@@ -28,4 +28,9 @@
     - 在 `lib/llm/db.ts:saveMessageWithTool` 一处持久化到 message 行的 inputTokens/outputTokens（一次 turn 只调用一次，是聚合写入的唯一点）
     - 三入口（createStory / continueCreateStory / continueStory）调用代码保持一致：仅在构造 ctx 时多传 `tokenUsage: createTokenAccumulator()`
   - 显示部分待办：前端聊天界面尚未读取并展示每条 assistant message 的 inputTokens/outputTokens
-- [ ] 把故事初始设定和故事状态合并，去掉故事初始设定表，简化数据结构和调用流程
+- [x] 把故事初始设定和故事状态合并，去掉故事初始设定字段，简化数据结构和调用流程
+  - 删除 `story.describe` 字段和对应生成/读取/UI 展示；`createStory` 仅保存 `type/worldview`。
+  - `worldSnapshot` 成为唯一世界快照描述源，由 `initializeStoryState` 初始化并由 Statekeeper 每轮更新。
+  - 完成门控改为 `type && worldview && worldSnapshot`，不迁移历史 `describe` 数据。
+- [ ] TaskState 和 StoryState 的工具描述更详细，把 Statekeeper 和 Taskmaster 合并为一个 AGENT。如何更新 任务状态和故事状态的所有需要的信息都写入工具而不是 AGENT
+  - 其他工具也是，工具的功能和约束都写入工具而不是 agent，agent 中只写工作流和何时调用工具
