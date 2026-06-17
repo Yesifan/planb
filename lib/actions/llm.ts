@@ -53,7 +53,7 @@ import {
 } from "@/lib/llm/utils";
 
 import { AgentStatusEvent, ToolContext } from "../llm/type";
-import { getChatHistory, getLastestChatMessage } from "./db";
+import { getChatHistory, getChatQuestions, getLastestChatMessage } from "./db";
 
 async function ensureChatAccess(chatId: string, userId: string) {
   const found = await db.query.chat.findFirst({
@@ -435,12 +435,25 @@ async function continueStory(
     statusText: AGENT_STATUS_TEXT.Weaver,
   });
 
+  const latestMessage = await getLastestChatMessage(chatId);
+  const weaverContent =
+    "根据最新章节大纲完成小说内容 \n\n" +
+    (latestMessage?.text
+      ? "1. 正文需要保持和之前正文的连贯性和一致性. 2.参考之前的历史记录和世界背景，防止出现内容冲突内容。 \n\n" +
+        `##上一章节正文 \n\n` +
+        `${latestMessage.text} \n\n`
+      : "1. 参考之前的历史记录和世界背景，防止出现内容冲突内容。 \n\n") +
+    `##最新章节大纲 \n\n` +
+    `${oracleText}`;
+
+  log.debug("weaverContent" + weaverContent);
+
   const result = await weaver.stream({
     prompt: [
       ...messages.slice(0, 2),
       {
         role: "user",
-        content: `根据以下剧情大纲完成小说内容：\n\n${oracleText}`,
+        content: weaverContent,
       },
     ],
     experimental_context,
@@ -530,7 +543,7 @@ export async function continueConversation(chatId: string, prompt: string) {
 
   log.info({ chatId, prompt }, "action.input");
 
-  const history = await getChatHistory(chatId, 25);
+  const history = await getChatHistory(chatId, 10);
   const storyData = await db.query.story.findFirst({
     where: { chatId: chatId },
   });
@@ -565,31 +578,11 @@ export async function continueConversation(chatId: string, prompt: string) {
 
   const questionMessages = isSettingComplete
     ? []
-    : (
-        await db.query.message.findMany({
-          with: {
-            toolCalls: true,
-          },
-          where: {
-            chatId,
-          },
-          orderBy: {
-            createdAt: "desc",
-          },
-          limit: 10,
-        })
-      )
-        .reverse()
-        .filter(
-          (message) =>
-            message.role === "assistant" &&
-            message.toolCalls.some((tc) => tc.name === "createQuestion"),
-        )
-        .map((message) =>
-          recentQuestion && message.id === latestMessage?.id
-            ? latestMessage
-            : message,
-        );
+    : (await getChatQuestions(chatId, 10)).map((message) =>
+        recentQuestion && message.id === latestMessage?.id
+          ? latestMessage
+          : message,
+      );
 
   const storyMessage = toStoryModelMessage(storyData);
   const runtimeMessage = toRuntimeStateModelMessage({
@@ -609,10 +602,11 @@ export async function continueConversation(chatId: string, prompt: string) {
     historyMessage,
     ...latestInputMessage,
   ].filter((m) => m !== undefined);
+
   const contextTokens = estimateModelMessageTokens(modelMessage);
 
   log.debug(
-    { inputMessages: latestInputMessage, contextTokens },
+    { inputMessages: modelMessage, contextTokens },
     "action.model-message.input",
   );
 

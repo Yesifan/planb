@@ -51,9 +51,7 @@ export async function getChatWithStory(chatId: string) {
   }
 }
 
-export async function getChatTokens(
-  chatId: string,
-): Promise<{
+export async function getChatTokens(chatId: string): Promise<{
   inputTokens: number;
   outputTokens: number;
   contextTokens: number;
@@ -212,6 +210,18 @@ export async function getChatMessages(chatId: string, limit = 100, offset = 0) {
   }
 }
 
+export async function getChatQuestions(
+  chatId: string,
+  limit = 100,
+  offset = 0,
+) {
+  return (await getChatMessages(chatId, limit, offset)).filter(
+    (message) =>
+      message.role === "assistant" &&
+      message.toolCalls.some((tc) => tc.name === "createQuestion"),
+  );
+}
+
 export async function getLastestChatMessage(chatId: string) {
   const session = await getSessionWithRedirect();
   const chat = await db.query.chat.findFirst({
@@ -270,9 +280,8 @@ export async function getUserChats(options?: {
   const hasMore = chats.length > limit;
   const items = hasMore ? chats.slice(0, limit) : chats;
   const last = items.at(-1);
-  const nextCursor = hasMore && last
-    ? { updatedAt: last.updatedAt, id: last.id }
-    : null;
+  const nextCursor =
+    hasMore && last ? { updatedAt: last.updatedAt, id: last.id } : null;
 
   return { chats: items, nextCursor };
 }

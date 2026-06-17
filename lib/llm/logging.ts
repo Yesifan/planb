@@ -53,7 +53,7 @@ export function buildAgentStepLogPayload<TOOLS extends ToolSet>(
     reasoning: step.reasoning,
     finishReason: step.finishReason,
     toolCalls: step.toolCalls,
-    toolResults: step.toolResults,
+    toolResults: step.toolResults.map((result) => result.output),
   };
 }
 
