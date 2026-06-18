@@ -251,6 +251,16 @@ export function ChatRightSidebar({
                     </p>
                   </div>
                   <StatDimension dimensions={protagonist.dimensions} />
+                  <div>
+                    <div className="text-sm font-medium">资源</div>
+                    <MarkdownPanel
+                      className={cn(
+                        "px-0 py-1 text-xs leading-5",
+                        "[&_h1]:text-sm [&_h2]:text-xs [&_h3]:text-xs",
+                      )}
+                      content={protagonist.resources}
+                    />
+                  </div>
                 </div>
               ) : (
                 <EmptyPanel label="暂无主角状态" />

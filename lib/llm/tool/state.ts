@@ -10,12 +10,20 @@ import logger from "@/lib/logger";
 import { ToolContext } from "../type";
 
 const PROFILE_DESCRIPTION = [
-  "主角运行状态摘要。描写主角情况，当前时间，简单介绍主角所处情况，详细列出会影响后续因果的关键资源。",
-  "必须至少记录 1 项重要资源，例如资产、宝物、军队、军粮、资金、装备、法器、舰队、领地、情报、人手、寿命、倒计时等。",
-  "每项资源必须写清：资源/物品名、数量/金额/规模/件数/兵力/战力、当前用途、状态和限制。",
-  "优先使用可追踪数字，例如：'银两：300 两，可支撑 20 名护卫约 10 日'、'蜀军：约 10 万，军粮 30 日余量'。",
-  "禁止写不可追踪的模糊描述，例如：'有一些钱'、'兵力不少'、'资源丰富'。",
+  "主角当前基础状况摘要。只写主角当前的身体/身份状态、所处时间和地点、当前职位或身份，以及一句 30 字以内的大局层面局势概括。",
+].join("\n");
+
+const RESOURCES_DESCRIPTION = [
+  "主角可用资源清单，使用 Markdown 格式。必须使用 `## 可用资源` 作为标题。",
+  "如果主角当前没有任何可用资源，在 `## 可用资源` 下写 `暂无`。",
+  "如果存在可用资源，每个资源条目使用 `### 资源名称` 标题，并包含以下内容：",
+  "- 描述：资源是什么、当前状态如何。",
+  "- 价值：资源在当前局势下的叙事价值或数量。",
+  "- 备注：其他需要记录的限制、来源或变化。",
   "更新时必须保留仍然有效的旧资源，移除已经失去、耗尽或不再关键的资源，并反映最新消耗、损失、获得和限制。",
+  "示例：",
+  "## 资金：100两",
+  "## 宝物：八卦图，价值：《使用描述和功能描述》",
 ].join("\n");
 
 const DIMENSIONS_DESCRIPTION = [
@@ -32,7 +40,7 @@ const DIMENSION_VALUES_DESCRIPTION = [
 ].join("\n");
 
 const WORLD_SNAPSHOT_DESCRIPTION = [
-  "固定 Markdown 格式的当前世界快照，是世界当前状态的唯一摘要来源。",
+  "固定格式的世界快照，是世界当前状态的唯一摘要来源。",
   "必须从世界视角概括当前重要事项，包括主角知道的信息、主角不知道但已经真实发生的暗线、关键势力变化、人物处境和环境状态。",
   "事实只能被新的事实覆盖，不能无故删除或改写；如果信息不足，基于已有事实给出保守状态，不要编造新事件。",
   "必须压缩到最重要事项，避免冗长细节、氛围描写、作者旁白和未来预告。",
@@ -78,8 +86,9 @@ const protagonistDimensionSchema = z.object({
     ),
 });
 
-const storyStateSchema = z.object({
+const protagonistStateSchema = z.object({
   profile: z.string().min(1).describe(PROFILE_DESCRIPTION),
+  resources: z.string().min(1).describe(RESOURCES_DESCRIPTION),
   dimensions: z
     .array(protagonistDimensionSchema)
     .length(5)
@@ -90,15 +99,18 @@ const storyStateSchema = z.object({
       "五维名称不能重复",
     )
     .describe(DIMENSIONS_DESCRIPTION),
-  worldSnapshot: z.string().min(1).describe(WORLD_SNAPSHOT_DESCRIPTION),
 });
 
-const updateStoryStateSchema = z.object({
+const updateProtagonistStateSchema = z.object({
   profile: z.string().min(1).describe(PROFILE_DESCRIPTION),
+  resources: z.string().min(1).describe(RESOURCES_DESCRIPTION),
   dimensionValues: z
     .array(z.number().int().min(0).max(100))
     .length(5)
     .describe(DIMENSION_VALUES_DESCRIPTION),
+});
+
+const worldSnapshotSchema = z.object({
   worldSnapshot: z.string().min(1).describe(WORLD_SNAPSHOT_DESCRIPTION),
 });
 
@@ -106,41 +118,37 @@ const taskStateSchema = z.object({
   taskState: z.string().min(1).describe(TASK_STATE_DESCRIPTION),
 });
 
-export type StoryStateInput = z.infer<typeof storyStateSchema>;
-export type UpdateStoryStateInput = z.infer<typeof updateStoryStateSchema>;
+export type ProtagonistStateInput = z.infer<typeof protagonistStateSchema>;
+export type UpdateProtagonistStateInput = z.infer<
+  typeof updateProtagonistStateSchema
+>;
+export type WorldSnapshotInput = z.infer<typeof worldSnapshotSchema>;
 export type TaskStateInput = z.infer<typeof taskStateSchema>;
 
-export async function initializeStoryStateData(
+export async function initializeProtagonistStateData(
   db: DB,
   chatId: string,
-  input: StoryStateInput,
+  input: ProtagonistStateInput,
 ) {
-  const state = storyStateSchema.parse(input);
+  const state = protagonistStateSchema.parse(input);
   const now = new Date();
-  db.transaction((tx) => {
-    tx.insert(protagonistState)
-      .values({
-        id: nanoid(),
-        chatId,
-        profile: state.profile,
-        dimensions: state.dimensions,
-        createdAt: now,
-        updatedAt: now,
-      })
-      .run();
-    tx.update(story)
-      .set({ worldSnapshot: state.worldSnapshot })
-      .where(eq(story.chatId, chatId))
-      .run();
+  await db.insert(protagonistState).values({
+    id: nanoid(),
+    chatId,
+    profile: state.profile,
+    resources: state.resources,
+    dimensions: state.dimensions,
+    createdAt: now,
+    updatedAt: now,
   });
 }
 
-export async function updateStoryStateData(
+export async function updateProtagonistStateData(
   db: DB,
   chatId: string,
-  input: UpdateStoryStateInput,
+  input: UpdateProtagonistStateInput,
 ) {
-  const state = updateStoryStateSchema.parse(input);
+  const state = updateProtagonistStateSchema.parse(input);
   const existing = await db.query.protagonistState.findFirst({
     where: { chatId },
   });
@@ -151,20 +159,24 @@ export async function updateStoryStateData(
     ...dimension,
     value: state.dimensionValues[index] ?? dimension.value,
   }));
-  db.transaction((tx) => {
-    tx.update(protagonistState)
-      .set({
-        profile: state.profile,
-        dimensions,
-        updatedAt: new Date(),
-      })
-      .where(eq(protagonistState.chatId, chatId))
-      .run();
-    tx.update(story)
-      .set({ worldSnapshot: state.worldSnapshot })
-      .where(eq(story.chatId, chatId))
-      .run();
-  });
+  await db
+    .update(protagonistState)
+    .set({
+      profile: state.profile,
+      resources: state.resources,
+      dimensions,
+      updatedAt: new Date(),
+    })
+    .where(eq(protagonistState.chatId, chatId));
+}
+
+export async function updateWorldSnapshotData(
+  db: DB,
+  chatId: string,
+  input: WorldSnapshotInput,
+) {
+  const { worldSnapshot } = worldSnapshotSchema.parse(input);
+  await db.update(story).set({ worldSnapshot }).where(eq(story.chatId, chatId));
 }
 
 export async function initializeTaskStateData(
@@ -186,31 +198,48 @@ export async function updateTaskStateData(
   await initializeTaskStateData(db, chatId, input);
 }
 
-export const initializeStoryState = tool({
+export const initializeProtagonistState = tool({
   description:
-    "初始化主角五维结构化状态和世界当前快照。调用时必须同时提供完整 profile、五个 dimensions 和 worldSnapshot。",
-  inputSchema: storyStateSchema,
+    "初始化主角结构化状态。调用时必须同时提供完整 profile、resources 和五个 dimensions。",
+  inputSchema: protagonistStateSchema,
   async execute(input, { experimental_context }) {
     const { db, chatId, traceId } = experimental_context as ToolContext;
     logger
-      .child({ traceId: traceId ?? "unknown", tool: "initializeStoryState" })
-      .info({ chatId }, "tool.initializeStoryState");
-    await initializeStoryStateData(db, chatId, input);
-    return "初始化故事运行状态成功";
+      .child({
+        traceId: traceId ?? "unknown",
+        tool: "initializeProtagonistState",
+      })
+      .info({ chatId }, "tool.initializeProtagonistState");
+    await initializeProtagonistStateData(db, chatId, input);
+    return "初始化主角状态成功";
   },
 });
 
-export const updateStoryState = tool({
+export const updateProtagonistState = tool({
   description:
-    "根据最新大纲更新主角 profile、五维数值和世界当前快照。已有五维的名称和描述由系统保留，工具只接收并应用每维 value。",
-  inputSchema: updateStoryStateSchema,
+    "根据最新大纲更新主角 profile、resources 和五维数值。已有五维的名称和描述由系统保留，工具只接收并应用每维 value。",
+  inputSchema: updateProtagonistStateSchema,
   async execute(input, { experimental_context }) {
     const { db, chatId, traceId } = experimental_context as ToolContext;
     logger
-      .child({ traceId: traceId ?? "unknown", tool: "updateStoryState" })
-      .info({ chatId }, "tool.updateStoryState");
-    await updateStoryStateData(db, chatId, input);
-    return "更新故事运行状态成功";
+      .child({ traceId: traceId ?? "unknown", tool: "updateProtagonistState" })
+      .info({ chatId }, "tool.updateProtagonistState");
+    await updateProtagonistStateData(db, chatId, input);
+    return "更新主角状态成功";
+  },
+});
+
+export const updateWorldSnapshot = tool({
+  description:
+    "根据最新大纲单独更新世界当前快照，将重要的世界事件，局势变化持久化到世界快照中。",
+  inputSchema: worldSnapshotSchema,
+  async execute(input, { experimental_context }) {
+    const { db, chatId, traceId } = experimental_context as ToolContext;
+    logger
+      .child({ traceId: traceId ?? "unknown", tool: "updateWorldSnapshot" })
+      .info({ chatId }, "tool.updateWorldSnapshot");
+    await updateWorldSnapshotData(db, chatId, input);
+    return "更新世界快照成功";
   },
 });
 

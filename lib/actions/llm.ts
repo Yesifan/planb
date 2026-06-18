@@ -23,13 +23,7 @@ import {
   story,
   toolCall,
 } from "@/lib/db/schema";
-import {
-  archivist,
-  oracle,
-  runtimekeeper,
-  sentinel,
-  weaver,
-} from "@/lib/llm";
+import { archivist, oracle, runtimekeeper, sentinel, weaver } from "@/lib/llm";
 import {
   isArchivistInitComplete,
   missingInitToolNames,
@@ -322,7 +316,16 @@ async function continueStory(
   });
 
   const storyData = await db.query.story.findFirst({ where: { chatId } });
-  const isUpdate = storyData?.worldSnapshot ? true : false;
+  const protagonistData = await db.query.protagonistState.findFirst({
+    where: { chatId },
+    columns: { id: true },
+  });
+  const protagonistStateInstruction = protagonistData
+    ? "可调用 updateProtagonistState 更新主角 profile/resources/五维数值"
+    : "主角状态缺失时，可调用 initializeProtagonistState 初始化主角 profile/resources/五维（仅作为缺失状态保底）";
+  const taskStateInstruction = storyData?.taskState
+    ? "可调用 updateTaskState 更新任务列表"
+    : "任务状态缺失时，可调用 initializeTaskState 初始化任务系统";
 
   // Step 1: Sentinel 审查用户输入
   stream.update({
@@ -497,23 +500,10 @@ async function continueStory(
       ...messages.slice(0, -1),
       {
         role: "user",
-        content: isUpdate
-          ? `当前已存在旧的主角五维、世界快照和任务状态。请根据大纲在同一轮内调用 updateStoryState 更新主角五维数值和世界当前快照，并调用 updateTaskState 更新任务列表。\n\n大纲：${oracleText}`
-          : `当前没有旧的主角五维、世界快照或任务状态。请根据故事设定在同一轮内调用 initializeStoryState 初始化主角五维和世界当前快照，并调用 initializeTaskState 初始化任务系统。\n\n大纲：${oracleText}`,
+        content: `请根据大纲按需维护运行状态：${protagonistStateInstruction}；可调用 updateWorldSnapshot 单独更新世界当前快照；${taskStateInstruction}；\n\n大纲：${oracleText}`,
       },
     ],
     experimental_context,
-    stopWhen: ({ steps }) => {
-      const toolNames = new Set(
-        steps.flatMap((step) => step.toolCalls.map((toolCall) => toolCall.toolName)),
-      );
-      return (
-        (toolNames.has("initializeStoryState") ||
-          toolNames.has("updateStoryState")) &&
-        (toolNames.has("initializeTaskState") ||
-          toolNames.has("updateTaskState"))
-      );
-    },
     onStepFinish(step) {
       log.step(step, "agent.Runtimekeeper.step.finish");
     },
@@ -523,6 +513,12 @@ async function continueStory(
     .then((runtimeResult) => {
       if (experimental_context.tokenUsage) {
         addUsage(experimental_context.tokenUsage, runtimeResult.totalUsage);
+      }
+      if (runtimeResult.text.length > 0) {
+        log.info(
+          { text: runtimeResult.text },
+          "agent.Runtimekeeper.text.log-only",
+        );
       }
     })
     .catch((error) => {

@@ -28,7 +28,7 @@ export const archivist = createAgent<
   PickTools<
     | "createQuestion"
     | "createStory"
-    | "initializeStoryState"
+    | "initializeProtagonistState"
     | "initializeTaskState"
   >
 >("Archivist", provider, Archivist);
@@ -37,10 +37,11 @@ export const oracle = createAgent("Oracle", provider, Oracle);
 export const system = createAgent("System", provider, System);
 export const runtimekeeper = createAgent<
   PickTools<
-    | "initializeStoryState"
-    | "updateStoryState"
+    | "initializeProtagonistState"
+    | "updateProtagonistState"
     | "initializeTaskState"
     | "updateTaskState"
+    | "updateWorldSnapshot"
   >
 >("Runtimekeeper", provider, Runtimekeeper);
 export const weaver = createAgent("Weaver", provider, Weaver);

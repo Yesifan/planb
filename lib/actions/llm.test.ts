@@ -49,16 +49,18 @@ const createStoryToolResponse = {
     title: "五丈原新局",
     type: "历史改编",
     worldview: "架空三国，信息传递依赖驿道与军报。",
+    worldSnapshot: "## 世界当前时点\n五丈原对峙仍在持续。",
   },
   usage: { inputTokens: 3, outputTokens: 4 },
 };
 
-const initializeStoryStateToolResponse = {
+const initializeProtagonistStateToolResponse = {
   kind: "tool-call" as const,
-  toolName: "initializeStoryState",
+  toolName: "initializeProtagonistState",
   input: {
-    profile:
-      "主角是诸葛亮，刚从病危中稳住局面。重要资源：蜀军约10万兵力，仍在五丈原维持战线；军粮30日余量，补给线压力明显。",
+    profile: "主角是诸葛亮，刚从病危中稳住局面，当前身处五丈原蜀军大营。",
+    resources:
+      "## 可用资源\n\n### 蜀军\n- 描述：约 10 万兵力，仍在五丈原维持战线。\n- 价值：可支撑北伐战线。\n- 备注：补给线压力明显。",
     dimensions: [
       { name: "身体", value: 55, summary: "病势初稳" },
       { name: "心智", value: 88, summary: "判断清晰" },
@@ -66,7 +68,6 @@ const initializeStoryStateToolResponse = {
       { name: "资源", value: 46, summary: "粮草压力明显" },
       { name: "时机", value: 60, summary: "魏军尚未确认虚实" },
     ],
-    worldSnapshot: "## 世界当前时点\n五丈原对峙仍在持续。",
   },
   usage: { inputTokens: 5, outputTokens: 6 },
 };
@@ -76,6 +77,36 @@ const initializeTaskStateToolResponse = {
   toolName: "initializeTaskState",
   input: {
     taskState: "## 进行中\n- 稳住五丈原军心：避免魏军识破病情。",
+  },
+  usage: { inputTokens: 7, outputTokens: 8 },
+};
+
+const updateProtagonistStateToolResponse = {
+  kind: "tool-call" as const,
+  toolName: "updateProtagonistState",
+  input: {
+    profile: "主角是诸葛亮，正在推进长安战役。",
+    resources:
+      "## 可用资源\n\n### 长安先锋\n- 描述：2 万先锋，已占据要道。\n- 价值：控制长安外围。",
+    dimensionValues: [68, 84, 64, 48, 57],
+  },
+  usage: { inputTokens: 5, outputTokens: 6 },
+};
+
+const updateWorldSnapshotToolResponse = {
+  kind: "tool-call" as const,
+  toolName: "updateWorldSnapshot",
+  input: {
+    worldSnapshot: "## 当前局势\n长安战役进入相持。",
+  },
+  usage: { inputTokens: 3, outputTokens: 4 },
+};
+
+const updateTaskStateToolResponse = {
+  kind: "tool-call" as const,
+  toolName: "updateTaskState",
+  input: {
+    taskState: "## 进行中\n- 攻取长安：战役进入相持。",
   },
   usage: { inputTokens: 7, outputTokens: 8 },
 };
@@ -175,7 +206,7 @@ describe("continueConversation", () => {
       });
 
       setMockResponses([
-        initializeStoryStateToolResponse,
+        initializeProtagonistStateToolResponse,
         initializeTaskStateToolResponse,
         createStoryToolResponse,
         {
@@ -240,7 +271,7 @@ describe("continueConversation", () => {
       });
 
       setMockResponses([
-        initializeStoryStateToolResponse,
+        initializeProtagonistStateToolResponse,
         initializeTaskStateToolResponse,
         createStoryToolResponse,
         {
@@ -272,7 +303,7 @@ describe("continueConversation", () => {
       resetMock();
     });
 
-    test("should let archivist initialize story and task state before creating story setting", async () => {
+    test("should persist createStory worldSnapshot and protagonist state resources", async () => {
       const now = new Date();
       const chatId = "cc-archivist-init-runtime";
 
@@ -302,10 +333,22 @@ describe("continueConversation", () => {
       setMockResponses([
         {
           kind: "tool-call",
-          toolName: "initializeStoryState",
+          toolName: "createStory",
           input: {
-            profile:
-              "主角是诸葛亮，刚从病危中稳住局面。重要资源：蜀军约10万兵力，仍在五丈原维持战线；军粮30日余量，补给线压力明显。",
+            title: "五丈原新局",
+            type: "历史改编",
+            worldview: "架空三国，信息传递依赖驿道与军报。",
+            worldSnapshot: "## 世界当前时点\n五丈原对峙仍在持续。",
+          },
+          usage: { inputTokens: 30, outputTokens: 40 },
+        },
+        {
+          kind: "tool-call",
+          toolName: "initializeProtagonistState",
+          input: {
+            profile: "主角是诸葛亮，刚从病危中稳住局面。",
+            resources:
+              "## 可用资源\n\n### 蜀军\n- 描述：约 10 万兵力。\n- 价值：可支撑北伐战线。",
             dimensions: [
               { name: "身体", value: 55, summary: "病势初稳" },
               { name: "心智", value: 88, summary: "判断清晰" },
@@ -313,7 +356,6 @@ describe("continueConversation", () => {
               { name: "资源", value: 46, summary: "粮草压力明显" },
               { name: "时机", value: 60, summary: "魏军尚未确认虚实" },
             ],
-            worldSnapshot: "## 世界当前时点\n五丈原对峙仍在持续。",
           },
           usage: { inputTokens: 7, outputTokens: 8 },
         },
@@ -324,16 +366,6 @@ describe("continueConversation", () => {
             taskState: "## 进行中\n- 稳住五丈原军心：避免魏军识破病情。",
           },
           usage: { inputTokens: 9, outputTokens: 10 },
-        },
-        {
-          kind: "tool-call",
-          toolName: "createStory",
-          input: {
-            title: "五丈原新局",
-            type: "历史改编",
-            worldview: "架空三国，信息传递依赖驿道与军报。",
-          },
-          usage: { inputTokens: 30, outputTokens: 40 },
         },
         {
           kind: "text",
@@ -362,6 +394,7 @@ describe("continueConversation", () => {
       expect(storyRow?.type).toBe("历史改编");
       expect(storyRow?.worldSnapshot).toContain("五丈原对峙");
       expect(storyRow?.taskState).toContain("稳住五丈原军心");
+      expect(protagonist?.resources).toContain("蜀军");
       expect(protagonist?.dimensions).toHaveLength(5);
       expect(assistantMessages[0]?.text).toContain("五丈原风云");
       expect(assistantMessages[0]?.inputTokens).toBe(96);
@@ -374,11 +407,10 @@ describe("continueConversation", () => {
       const chatId = "cc-completeness-stopwhen";
       await setupIncompleteStory(chatId);
 
-      // Agent calls some tools in step 1, remaining tools in step 2
       setMockResponses([
         initializeTaskStateToolResponse,
         createStoryToolResponse,
-        initializeStoryStateToolResponse,
+        initializeProtagonistStateToolResponse,
         {
           kind: "text",
           text: "第一章：五丈原风云再起...",
@@ -408,7 +440,6 @@ describe("continueConversation", () => {
       const chatId = "cc-missing-tools-max-steps";
       await setupIncompleteStory(chatId);
 
-      // Agent never calls any required tools, just returns text
       setMockResponses([
         {
           kind: "text",
@@ -428,7 +459,7 @@ describe("continueConversation", () => {
       }
 
       expect(String(caught)).toContain("createStory");
-      expect(String(caught)).toContain("initializeStoryState");
+      expect(String(caught)).toContain("initializeProtagonistState");
       expect(String(caught)).toContain("initializeTaskState");
 
       resetMock();
@@ -585,7 +616,7 @@ describe("continueConversation", () => {
       ]);
 
       setMockResponses([
-        initializeStoryStateToolResponse,
+        initializeProtagonistStateToolResponse,
         initializeTaskStateToolResponse,
         createStoryToolResponse,
         {
@@ -643,6 +674,8 @@ describe("continueConversation", () => {
         id: "cc-protagonist-2",
         chatId,
         profile: "主角是诸葛亮，正在准备北伐。",
+        resources:
+          "## 可用资源\n\n### 旧资源\n- 描述：测试资源。\n- 价值：测试。",
         dimensions: [
           { name: "身体", value: 70, summary: "稳定" },
           { name: "心智", value: 80, summary: "稳定" },
@@ -699,25 +732,9 @@ describe("continueConversation", () => {
           text: "第二章：长安烽火...",
           usage: { inputTokens: 50, outputTokens: 60 },
         },
-        {
-          kind: "tool-call",
-          toolName: "updateStoryState",
-          input: {
-            profile:
-              "主角是诸葛亮，正在推进长安战役。重要资源：长安前线兵力2万先锋，已占据要道；军粮20日余量，相持中持续消耗。",
-            dimensionValues: [68, 84, 64, 48, 57],
-            worldSnapshot: "## 当前局势\n长安战役进入相持。",
-          },
-          usage: { inputTokens: 7, outputTokens: 8 },
-        },
-        {
-          kind: "tool-call",
-          toolName: "updateTaskState",
-          input: {
-            taskState: "## 进行中\n- 攻取长安：战役进入相持。",
-          },
-          usage: { inputTokens: 9, outputTokens: 10 },
-        },
+        updateProtagonistStateToolResponse,
+        updateWorldSnapshotToolResponse,
+        updateTaskStateToolResponse,
       ]);
 
       const { continueConversation } = await import("@/lib/actions/llm");
@@ -740,7 +757,7 @@ describe("continueConversation", () => {
       const latest = assistantMessages[0];
       expect(latest?.text).toContain("长安烽火");
       expect(latest?.inputTokens).toBe(160);
-      expect(latest?.outputTokens).toBe(204);
+      expect(latest?.outputTokens).toBe(205);
 
       const oracleCall = JSON.stringify(getMockCallOptions()[1]);
       expect(oracleCall).toContain("reviewBranch");
@@ -753,12 +770,13 @@ describe("continueConversation", () => {
       });
       expect(storyRow?.worldSnapshot).toContain("长安战役进入相持");
       expect(storyRow?.taskState).toContain("攻取长安");
+      expect(protagonist?.resources).toContain("长安先锋");
       expect(protagonist?.dimensions).toHaveLength(5);
 
       resetMock();
     });
 
-    test("should initialize runtime state during story continuation when previous state does not exist", async () => {
+    test("should initialize protagonist state fallback when previous protagonist state does not exist", async () => {
       const now = new Date();
       const chatId = "cc-complete-story-no-runtime";
 
@@ -777,6 +795,7 @@ describe("continueConversation", () => {
         type: "历史改编",
         worldview: "架空三国",
         worldSnapshot: "## 世界当前时点\n尚无运行状态",
+        taskState: "## 进行中\n- 攻取长安：尚未开始。",
         createdAt: now,
         updatedAt: now,
       });
@@ -819,31 +838,8 @@ describe("continueConversation", () => {
           text: "第二章：长安烽火...",
           usage: { inputTokens: 50, outputTokens: 60 },
         },
-        {
-          kind: "tool-call",
-          toolName: "initializeStoryState",
-          input: {
-            profile:
-              "主角是诸葛亮，正在推进长安战役。重要资源：长安前线兵力2万先锋，已占据要道；军粮20日余量，相持中持续消耗。",
-            dimensions: [
-              { name: "身体", value: 68, summary: "仍能支撑军务" },
-              { name: "心智", value: 84, summary: "谋划清晰" },
-              { name: "威望", value: 64, summary: "军中信任尚稳" },
-              { name: "资源", value: 48, summary: "粮草压力增加" },
-              { name: "时机", value: 57, summary: "长安战机未定" },
-            ],
-            worldSnapshot: "## 当前局势\n长安战役进入相持。",
-          },
-          usage: { inputTokens: 7, outputTokens: 8 },
-        },
-        {
-          kind: "tool-call",
-          toolName: "initializeTaskState",
-          input: {
-            taskState: "## 进行中\n- 攻取长安：战役进入相持。",
-          },
-          usage: { inputTokens: 9, outputTokens: 10 },
-        },
+        initializeProtagonistStateToolResponse,
+        updateTaskStateToolResponse,
       ]);
 
       const { continueConversation } = await import("@/lib/actions/llm");
@@ -862,12 +858,229 @@ describe("continueConversation", () => {
         where: { chatId, role: "assistant" },
         orderBy: { createdAt: "desc" },
       });
-      expect(storyRow?.worldSnapshot).toContain("长安战役进入相持");
       expect(storyRow?.taskState).toContain("攻取长安");
+      expect(protagonist?.profile).toContain("诸葛亮");
+      expect(protagonist?.resources).toContain("蜀军");
       expect(protagonist?.dimensions).toHaveLength(5);
-      expect(assistantMessages[0]?.inputTokens).toBe(160);
-      expect(assistantMessages[0]?.outputTokens).toBe(204);
+      expect(assistantMessages[0]?.inputTokens).toBe(157);
+      expect(assistantMessages[0]?.outputTokens).toBe(201);
       expect(JSON.stringify(getMockCallOptions()[1])).toContain("reviewBranch");
+
+      resetMock();
+    });
+
+    test("should allow runtimekeeper to finish without any tool calls", async () => {
+      const now = new Date();
+      const chatId = "cc-runtimekeeper-no-tools";
+
+      await db.insert(chat).values({
+        id: chatId,
+        userId: "test-user",
+        title: "Test No Tools",
+        createdAt: now,
+        updatedAt: now,
+      });
+      await db.insert(story).values({
+        id: "cc-story-no-tools",
+        chatId,
+        source: "三国",
+        singularity: "特异点",
+        type: "历史改编",
+        worldview: "架空三国",
+        worldSnapshot: "## 世界当前时点\n旧状态",
+        taskState: "## 进行中\n- 攻取长安：尚未开始。",
+        createdAt: now,
+        updatedAt: now,
+      });
+      await db.insert(protagonistState).values({
+        id: "cc-protagonist-no-tools",
+        chatId,
+        profile: "主角是诸葛亮。",
+        resources: "## 可用资源\n暂无",
+        dimensions: [
+          { name: "身体", value: 70, summary: "稳定" },
+          { name: "心智", value: 80, summary: "稳定" },
+          { name: "关系", value: 60, summary: "稳定" },
+          { name: "资源", value: 50, summary: "稳定" },
+          { name: "命运", value: 40, summary: "稳定" },
+        ],
+        createdAt: now,
+        updatedAt: now,
+      });
+      await db.insert(message).values({
+        id: "cc-asst-no-tools",
+        chatId,
+        role: "assistant",
+        text: "第一章结束，你想做什么？",
+        createdAt: now,
+      });
+      await db.insert(message).values({
+        id: "cc-user-no-tools",
+        chatId,
+        role: "user",
+        text: "按兵不动",
+        createdAt: now,
+      });
+
+      setMockResponses([
+        {
+          kind: "tool-call",
+          toolName: "judgeInput",
+          input: { decision: "approve", content: "主角决定按兵不动" },
+          text: "审查通过",
+          usage: { inputTokens: 10, outputTokens: 20 },
+        },
+        {
+          kind: "tool-call",
+          toolName: "reviewBranch",
+          input: {
+            content: "玩家操作：按兵不动\n故事大纲草案：无变化...",
+          },
+          usage: { inputTokens: 11, outputTokens: 12 },
+        },
+        {
+          kind: "text",
+          text: "### 事实一致性审查\n\n通过\n\n### 修改建议\n\n- 无需修改",
+          usage: { inputTokens: 13, outputTokens: 14 },
+        },
+        {
+          kind: "text",
+          text: "剧情大纲：无变化...",
+          usage: { inputTokens: 60, outputTokens: 80 },
+        },
+        {
+          kind: "text",
+          text: "第二章：风平浪静...",
+          usage: { inputTokens: 50, outputTokens: 60 },
+        },
+        {
+          kind: "text",
+          text: "本轮没有状态需要更新。",
+          usage: { inputTokens: 5, outputTokens: 6 },
+        },
+      ]);
+
+      const { continueConversation } = await import("@/lib/actions/llm");
+      const result = await continueConversation(chatId, "按兵不动");
+
+      for await (const _ of readStreamableValue(result.content)) void _;
+      await new Promise((r) => setTimeout(r, 50));
+
+      const storyRow = await db.query.story.findFirst({
+        where: { chatId },
+      });
+      const protagonist = await db.query.protagonistState.findFirst({
+        where: { chatId },
+      });
+      expect(storyRow?.worldSnapshot).toContain("旧状态");
+      expect(storyRow?.taskState).toContain("攻取长安");
+      expect(protagonist?.resources).toContain("暂无");
+
+      resetMock();
+    });
+
+    test("should allow runtimekeeper to update only task state", async () => {
+      const now = new Date();
+      const chatId = "cc-runtimekeeper-task-only";
+
+      await db.insert(chat).values({
+        id: chatId,
+        userId: "test-user",
+        title: "Test Task Only",
+        createdAt: now,
+        updatedAt: now,
+      });
+      await db.insert(story).values({
+        id: "cc-story-task-only",
+        chatId,
+        source: "三国",
+        singularity: "特异点",
+        type: "历史改编",
+        worldview: "架空三国",
+        worldSnapshot: "## 世界当前时点\n旧状态",
+        taskState: "## 进行中\n- 攻取长安：尚未开始。",
+        createdAt: now,
+        updatedAt: now,
+      });
+      await db.insert(protagonistState).values({
+        id: "cc-protagonist-task-only",
+        chatId,
+        profile: "主角是诸葛亮。",
+        resources: "## 可用资源\n暂无",
+        dimensions: [
+          { name: "身体", value: 70, summary: "稳定" },
+          { name: "心智", value: 80, summary: "稳定" },
+          { name: "关系", value: 60, summary: "稳定" },
+          { name: "资源", value: 50, summary: "稳定" },
+          { name: "命运", value: 40, summary: "稳定" },
+        ],
+        createdAt: now,
+        updatedAt: now,
+      });
+      await db.insert(message).values({
+        id: "cc-asst-task-only",
+        chatId,
+        role: "assistant",
+        text: "第一章结束，你想做什么？",
+        createdAt: now,
+      });
+      await db.insert(message).values({
+        id: "cc-user-task-only",
+        chatId,
+        role: "user",
+        text: "整军备战",
+        createdAt: now,
+      });
+
+      setMockResponses([
+        {
+          kind: "tool-call",
+          toolName: "judgeInput",
+          input: { decision: "approve", content: "主角决定整军备战" },
+          text: "审查通过",
+          usage: { inputTokens: 10, outputTokens: 20 },
+        },
+        {
+          kind: "tool-call",
+          toolName: "reviewBranch",
+          input: {
+            content: "玩家操作：整军备战\n故事大纲草案：准备进攻...",
+          },
+          usage: { inputTokens: 11, outputTokens: 12 },
+        },
+        {
+          kind: "text",
+          text: "### 事实一致性审查\n\n通过\n\n### 修改建议\n\n- 无需修改",
+          usage: { inputTokens: 13, outputTokens: 14 },
+        },
+        {
+          kind: "text",
+          text: "剧情大纲：准备进攻...",
+          usage: { inputTokens: 60, outputTokens: 80 },
+        },
+        {
+          kind: "text",
+          text: "第二章：整军备战...",
+          usage: { inputTokens: 50, outputTokens: 60 },
+        },
+        updateTaskStateToolResponse,
+      ]);
+
+      const { continueConversation } = await import("@/lib/actions/llm");
+      const result = await continueConversation(chatId, "整军备战");
+
+      for await (const _ of readStreamableValue(result.content)) void _;
+      await new Promise((r) => setTimeout(r, 50));
+
+      const storyRow = await db.query.story.findFirst({
+        where: { chatId },
+      });
+      const protagonist = await db.query.protagonistState.findFirst({
+        where: { chatId },
+      });
+      expect(storyRow?.worldSnapshot).toContain("旧状态");
+      expect(storyRow?.taskState).toContain("攻取长安");
+      expect(protagonist?.resources).toContain("暂无");
 
       resetMock();
     });

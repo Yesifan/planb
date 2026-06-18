@@ -40,6 +40,24 @@ const WORLDVIEW_DESCRIPTION = [
   "不要写空泛背景；每条设定都应能影响后续推演。",
 ].join("\n");
 
+const WORLD_SNAPSHOT_DESCRIPTION = [
+  "故事开局时点的世界态势基线。它是世界当前状态的唯一摘要来源，来自已经确认的故事设定。",
+  "必须从世界视角概括开局时的重要事项，包括主角知道的信息、主角不知道但已经真实发生的暗线、关键势力变化、人物处境和环境状态。",
+  "事实只能被新的事实覆盖，不能无故删除或改写；如果信息不足，基于已有事实给出保守状态，不要编造新事件。",
+  "必须压缩到最重要事项，避免冗长细节、氛围描写、作者旁白和未来预告。",
+  "推荐使用以下分区：",
+  "## 世界当前时点",
+  "当前日期/时期、地点、故事所处阶段，以及开局后的整体局势。",
+  "## 关键势力",
+  "主要势力的当前资源、立场、行动方向、冲突关系和信息掌握情况。",
+  "## 关键人物",
+  "主角、核心 NPC、敌友和潜在变量人物的当前处境、诉求、承诺、伤亡、位置和态度。",
+  "## 关键环境状态",
+  "政治、军事、经济、自然、技术、超自然规则、封锁、期限、倒计时等会影响下一步行动的环境条件。",
+  "## 已发生的重要事件",
+  "保留会影响后续因果的事件、线索、暗线、誓言、证据、任务结果和不可逆变化。",
+].join("\n");
+
 const SYSTEM_SETTING_DESCRIPTION = [
   "完整的金手指设定文本。必须使用清晰的 Markdown 层级，方便 System Agent 后续读取。",
   "必须包含以下维度：",
@@ -71,11 +89,15 @@ export const CreateStorySchema = z.object({
     .string()
     .min(1, "Worldview cannot be empty")
     .describe(WORLDVIEW_DESCRIPTION),
+  worldSnapshot: z
+    .string()
+    .min(1, "World snapshot cannot be empty")
+    .describe(WORLD_SNAPSHOT_DESCRIPTION),
 });
 
 export const createStory = tool({
   description:
-    "故事设定保存工具：调用后将故事的 title、type、worldview 保存到数据库。本工具只保存这三个字段，不保存主角状态、任务状态、金手指设定等其他内容。",
+    "故事设定保存工具：调用后将故事的 title、type、worldview 和初始 worldSnapshot 保存到数据库。本工具只保存故事基础设定和初始世界快照，不保存主角状态、任务状态、金手指设定等其他内容。",
   inputSchema: CreateStorySchema,
   async execute(input, { experimental_context }) {
     const { db, chatId, traceId } = experimental_context as ToolContext;
@@ -96,6 +118,7 @@ export const createStory = tool({
         .set({
           type: input.type,
           worldview: input.worldview,
+          worldSnapshot: input.worldSnapshot,
         })
         .where(eq(story.chatId, chatId));
       log.info({ chatId }, "tool.createStory.end");

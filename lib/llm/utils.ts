@@ -132,6 +132,9 @@ export function toRuntimeStateModelMessage({
       ? [
           "## 主角状态",
           `### 主角摘要\n${protagonistState.profile}`,
+          protagonistState.resources
+            ? `### 可用资源\n${protagonistState.resources}`
+            : undefined,
           "### 主角五维",
           protagonistState.dimensions
             .map(
@@ -139,7 +142,9 @@ export function toRuntimeStateModelMessage({
                 `- ${dimension.name}: ${dimension.value}/100，${dimension.summary}`,
             )
             .join("\n"),
-        ].join("\n")
+        ]
+            .filter((section) => section !== undefined)
+            .join("\n")
       : undefined,
     story?.worldSnapshot
       ? ["## 世界当前快照", story.worldSnapshot].join("\n")

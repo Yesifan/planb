@@ -76,6 +76,7 @@ export const protagonistState = sqliteTable("protagonist_state", {
   id: text("id").primaryKey(),
   chatId: text("chat_id").notNull(),
   profile: text("profile").notNull(),
+  resources: text("resources"),
   dimensions: text("dimensions", { mode: "json" })
     .$type<ProtagonistDimension[]>()
     .notNull(),

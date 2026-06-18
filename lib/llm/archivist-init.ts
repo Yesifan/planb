@@ -1,6 +1,6 @@
 const REQUIRED_ARCHIVIST_INIT_TOOLS = [
   "createStory",
-  "initializeStoryState",
+  "initializeProtagonistState",
   "initializeTaskState",
 ] as const;
 

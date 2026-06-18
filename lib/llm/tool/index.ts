@@ -2,10 +2,11 @@ import { tool, ToolSet } from "ai";
 import z from "zod";
 
 import {
-  initializeStoryState,
+  initializeProtagonistState,
   initializeTaskState,
-  updateStoryState,
+  updateProtagonistState,
   updateTaskState,
+  updateWorldSnapshot,
 } from "./state";
 import { createStory, saveSystemSetting } from "./story";
 
@@ -46,7 +47,7 @@ export const dice = tool({
   }),
   async execute({ title }) {
     const roll = () => Math.floor(Math.random() * 16) + 1;
-    const max = Math.max(roll(), roll());
+    const max = Math.max(roll(), roll(), roll());
 
     return `${title} dice result: ${max}`;
   },
@@ -102,11 +103,12 @@ const Tools = {
   createQuestion,
   dice,
   judgeInput,
-  initializeStoryState,
+  initializeProtagonistState,
   initializeTaskState,
   saveSystemSetting,
-  updateStoryState,
+  updateProtagonistState,
   updateTaskState,
+  updateWorldSnapshot,
 } satisfies ToolSet;
 
 export default Tools;
@@ -118,11 +120,12 @@ export const ToolKeys = [
   "createQuestion",
   "dice",
   "judgeInput",
-  "initializeStoryState",
+  "initializeProtagonistState",
   "initializeTaskState",
   "saveSystemSetting",
-  "updateStoryState",
+  "updateProtagonistState",
   "updateTaskState",
+  "updateWorldSnapshot",
 ] as const;
 
 export const AllToolKeys = [...ToolKeys, ...AgentTookKeys] as const;

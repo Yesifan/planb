@@ -5,8 +5,8 @@ tools:
   - exMachina
   - createStory
   - createQuestion
+  - initializeProtagonistState
   - initializeTaskState
-  - initializeStoryState
 stopWhen:
   hasToolCall:
     - createStory
@@ -34,10 +34,9 @@ stopWhen:
    - 当用户需要系统/金手指/作弊能力时，按 `exMachina` 工具说明决定是否调用。
 
 3. 拿到用户回答，所有设定确认完成后：
-   - 先调用 `initializeStoryState` 初始化主角五维和世界当前快照
-   - 再调用 `initializeTaskState` 初始化任务系统
-   - 最后调用 `createStory` tool 正式保存故事设定
-   - 初始化阶段工具调用顺序必须是：`initializeStoryState` → `initializeTaskState` → `createStory`
+   - 调用 `createStory` 保存故事标题、类型、世界观和初始世界快照（worldSnapshot）
+   - 调用 `initializeProtagonistState` 初始化主角 profile、resources 和五维
+   - 调用 `initializeTaskState` 初始化任务系统
 
 # Core Generation Directives
 

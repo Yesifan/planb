@@ -1,0 +1,1 @@
+ALTER TABLE `protagonist_state` ADD `resources` text;

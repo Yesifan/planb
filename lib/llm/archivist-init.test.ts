@@ -23,9 +23,7 @@ describe("isArchivistInitComplete", () => {
   test("should return false when only some required init tools have been called", () => {
     const steps = [
       {
-        toolResults: [
-          { toolName: "initializeStoryState", dynamic: false },
-        ],
+        toolResults: [{ toolName: "initializeProtagonistState", dynamic: false }],
         dynamicToolCalls: [],
       },
     ];
@@ -36,7 +34,7 @@ describe("isArchivistInitComplete", () => {
     const steps = [
       {
         toolResults: [
-          { toolName: "initializeStoryState", dynamic: true },
+          { toolName: "initializeProtagonistState", dynamic: true },
           { toolName: "initializeTaskState", dynamic: true },
           { toolName: "createStory", dynamic: true },
         ],
@@ -50,7 +48,7 @@ describe("isArchivistInitComplete", () => {
     const steps = [
       {
         toolResults: [
-          { toolName: "initializeStoryState", dynamic: false },
+          { toolName: "initializeProtagonistState", dynamic: false },
           { toolName: "initializeTaskState", dynamic: false },
           { toolName: "createStory", dynamic: false },
         ],
@@ -63,9 +61,7 @@ describe("isArchivistInitComplete", () => {
   test("should return true when all required init tools are spread across multiple steps", () => {
     const steps = [
       {
-        toolResults: [
-          { toolName: "initializeStoryState", dynamic: false },
-        ],
+        toolResults: [{ toolName: "initializeProtagonistState", dynamic: false }],
         dynamicToolCalls: [],
       },
       {
@@ -83,7 +79,7 @@ describe("isArchivistInitComplete", () => {
     const steps = [
       {
         toolResults: [
-          { toolName: "initializeStoryState", dynamic: false },
+          { toolName: "initializeProtagonistState", dynamic: false },
           { toolName: "someOtherTool", dynamic: false },
         ],
         dynamicToolCalls: [],
@@ -105,14 +101,14 @@ describe("missingInitToolNames", () => {
     const result = missingInitToolNames(new Set());
     expect(result).toEqual([
       "createStory",
-      "initializeStoryState",
+      "initializeProtagonistState",
       "initializeTaskState",
     ]);
   });
 
   test("should return only missing tools when some are completed", () => {
     const result = missingInitToolNames(
-      new Set(["initializeStoryState"]),
+      new Set(["initializeProtagonistState"]),
     );
     expect(result).toEqual(["createStory", "initializeTaskState"]);
   });
@@ -121,7 +117,7 @@ describe("missingInitToolNames", () => {
     const result = missingInitToolNames(
       new Set([
         "createStory",
-        "initializeStoryState",
+        "initializeProtagonistState",
         "initializeTaskState",
       ]),
     );
@@ -130,7 +126,7 @@ describe("missingInitToolNames", () => {
 
   test("should ignore non-required tool names", () => {
     const result = missingInitToolNames(
-      new Set(["initializeStoryState", "someOtherTool"]),
+      new Set(["initializeProtagonistState", "someOtherTool"]),
     );
     expect(result).toEqual(["createStory", "initializeTaskState"]);
   });
