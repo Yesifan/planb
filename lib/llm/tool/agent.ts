@@ -139,8 +139,9 @@ export const reviewBranch = tool({
       prompt:
         `## 故事背景 ${storyData?.worldview}` +
         `## 世界快照 ${storyData?.worldSnapshot}` +
+        `## 任务进度 ${storyData?.taskState}` +
         `## 待审查材料\n${content}` +
-        "请审查大纲是否存在事实一致性问题，并给出最小修改建议。不要创作新剧情，不要扩写正文。",
+        "请审查大纲是否存在事实一致性问题，并给出修改建议。",
       experimental_context,
     });
     if (tokenUsage) addUsage(tokenUsage, result.totalUsage);
