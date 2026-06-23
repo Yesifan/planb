@@ -84,6 +84,8 @@ provider:
     models:
       my-model-name:
         name: My Model Display Name
+      my-fast-model:
+        name: My Fast Model Display Name
 ```
 
 Key rules:
@@ -162,6 +164,38 @@ bun run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000). After GitHub login, the app redirects to `/story`.
+
+### Run with Docker Compose
+
+Use [`docker-compose.yml`](./docker-compose.yml) as a self-hosting template:
+
+```bash
+cp planb.example.yml planb.yml
+docker compose up -d
+```
+
+Before starting, set real values for `BETTER_AUTH_SECRET`, `GITHUB_CLIENT_ID`, and `GITHUB_CLIENT_SECRET`, update `HOST` to your public HTTPS origin, and fill `planb.yml` with real LLM provider credentials. The compose file mounts `/app/data` as a named volume so SQLite WAL files are persisted together.
+
+### Run with Docker
+
+For a single-container launch without Compose:
+
+```bash
+docker run -d \
+  --name planb \
+  -p 3000:3000 \
+  -e HOST="https://planb.example.com" \
+  -e BETTER_AUTH_SECRET="replace-with-a-strong-secret" \
+  -e GITHUB_CLIENT_ID="replace-with-github-client-id" \
+  -e GITHUB_CLIENT_SECRET="replace-with-github-client-secret" \
+  -e PLANB_SETTINGS_PATH="/app/planb.yml" \
+  -e DB_FILE_NAME="/app/data/planb.sqlite" \
+  -v planb-data:/app/data \
+  -v "$(pwd)/planb.yml:/app/planb.yml:ro" \
+  ghcr.io/your-org/planb:latest
+```
+
+Use a named volume for `/app/data`; SQLite WAL mode writes multiple files and they must be persisted together.
 
 ## Architecture
 

@@ -1,12 +1,14 @@
-primaryModel: "myprovider:my-model-name"
-secondaryModel: "myprovider:my-model-name"
+primaryModel: "myprovider/my-model-name"
+secondaryModel: "myprovider/my-fast-model"
 provider:
   myprovider:
     npm: "@ai-sdk/openai-compatible"
-    name: My AI ProviderDisplay Name
+    name: My AI Provider Display Name
     options:
       apiKey: xxxxxx
       baseURL: https://api.myprovider.com/v1
     models:
       my-model-name:
         name: My Model Display Name
+      my-fast-model:
+        name: My Fast Model Display Name

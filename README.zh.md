@@ -84,6 +84,8 @@ provider:
     models:
       my-model-name:
         name: My Model Display Name
+      my-fast-model:
+        name: My Fast Model Display Name
 ```
 
 关键规则：
@@ -162,6 +164,38 @@ bun run dev
 ```
 
 打开 [http://localhost:3000](http://localhost:3000)。通过 GitHub 登录后会进入 `/story`。
+
+### 使用 Docker Compose 运行
+
+[`docker-compose.yml`](./docker-compose.yml) 是自部署模板：
+
+```bash
+cp planb.example.yml planb.yml
+docker compose up -d
+```
+
+启动前需要设置真实的 `BETTER_AUTH_SECRET`、`GITHUB_CLIENT_ID`、`GITHUB_CLIENT_SECRET`，把 `HOST` 改成公网 HTTPS 地址，并在 `planb.yml` 中填写真实 LLM provider 凭据。compose 文件会把 `/app/data` 挂载为 named volume，确保 SQLite WAL 相关文件一起持久化。
+
+### 使用 Docker 运行
+
+如果不使用 Compose，可以用单条 `docker run` 启动：
+
+```bash
+docker run -d \
+  --name planb \
+  -p 3000:3000 \
+  -e HOST="https://planb.example.com" \
+  -e BETTER_AUTH_SECRET="replace-with-a-strong-secret" \
+  -e GITHUB_CLIENT_ID="replace-with-github-client-id" \
+  -e GITHUB_CLIENT_SECRET="replace-with-github-client-secret" \
+  -e PLANB_SETTINGS_PATH="/app/planb.yml" \
+  -e DB_FILE_NAME="/app/data/planb.sqlite" \
+  -v planb-data:/app/data \
+  -v "$(pwd)/planb.yml:/app/planb.yml:ro" \
+  ghcr.io/your-org/planb:latest
+```
+
+`/app/data` 建议使用 named volume；SQLite WAL 模式会写多个文件，需要一起持久化。
 
 ## 架构概览
 

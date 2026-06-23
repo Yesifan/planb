@@ -1,0 +1,21 @@
+services:
+  planb:
+    image: ghcr.io/your-org/planb:latest
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      HOST: "https://planb.example.com"
+      BETTER_AUTH_SECRET: "${BETTER_AUTH_SECRET}"
+      GITHUB_CLIENT_ID: "${GITHUB_CLIENT_ID}"
+      GITHUB_CLIENT_SECRET: "${GITHUB_CLIENT_SECRET}"
+      PLANB_SETTINGS_PATH: "/app/planb.yml"
+      DB_FILE_NAME: "/app/data/planb.sqlite"
+      LOG_LEVEL: "info"
+      LLM_AGENT_LOG_DETAIL: "summary"
+    volumes:
+      - planb-data:/app/data
+      - ./planb.yml:/app/planb.yml:ro
+
+volumes:
+  planb-data:

@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   turbopack: {
     rules: {
       "*.md": {
-        loaders: [require.resolve("./loader/matter.js")],
+        loaders: [require.resolve("./loader/matter.ts")],
         as: "*.js",
       },
     },
